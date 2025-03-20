@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #b9f0af;
+            background-image: url('/static/hh.webp');
+        }
+
+        /* Top Bar */
+        .top-bar {
+            background-color: transparent/*#92d18c*/;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+        }
+
+        .top-bar .nav-links a {
+            color: white;
+            text-decoration: none;
+            margin: 0 15px;
+            font-size: 16px;
+        }
+
+        .top-bar .nav-links a:hover {
+            text-decoration: underline;
+        }
+
+        /* Main Dashboard */
+        .dashboard-container {
+           /* padding: 40px;*/
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 36px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .welcome-message {
+            font-size: 18px;
+            color: #555;
+            margin-bottom: 30px;
+        }
+
+        .logout-btn {
+            padding: 10px 20px;
+            background-color: #e74c3c;
+            color: white;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            background-color: #c0392b;
+        }
+
+        .logout-btn:active {
+            background-color: #8e2121;
+        }
+
+        /* Flexbox layout for centering */
+        .dashboard-container {
+            display: flex;
+            justify-content: center;
+            flex-direction: column;
+            align-items: center;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="nav-links">
+            <a href="{{ url_for('logout') }}">Home</a>
+            <a href="{{ url_for('logout') }}">Plot</a>
+            <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+        </div>
+    </div>
+
+    <!-- Dashboard Content -->
+    <div class="dashboard-container">
+        <h1>Welcome to your Dashboard</h1>
+        <h1>Supervisor</h1>
+        <p class="welcome-message">You are logged in as {{ current_user.username }}</p>
+    </div>
+
+</body>
+
+</html>

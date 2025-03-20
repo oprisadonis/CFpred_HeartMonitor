@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uploader Dashboard</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #b9f0af;
+            background-image: url('/static/hh.webp');
+        }
+
+        /* Top Bar */
+        .top-bar {
+            background-color: transparent;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;  /* This will space out the elements on the bar */
+            align-items: center;
+        }
+
+        .top-bar .nav-links-right a {
+            color: white;
+            text-decoration: none;
+            margin: 0 15px;
+            font-size: 16px;
+        }
+
+        .top-bar .nav-links-right a:hover {
+            text-decoration: underline;
+        }
+
+        /* Main Dashboard */
+        .dashboard-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 36px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .welcome-message {
+            font-size: 18px;
+            color: #555;
+            margin-bottom: 30px;
+        }
+
+        /* Sensor Status */
+        .sensor-status {
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+        }
+
+        .status-dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 10px;
+        }
+
+        .red { background-color: red; }
+        .green { background-color: green; }
+
+        /* Start Monitoring Button */
+        .start-btn {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            border: none;
+        }
+
+        .start-btn:hover {
+            background-color: #45a049;
+        }
+
+        /* Logout Button */
+        .logout-btn {
+            padding: 10px 20px;
+            background-color: #e74c3c;
+            color: white;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            background-color: #c0392b;
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <!-- Left-aligned Sensor Status -->
+        <div class="sensor-status">
+            <div id="status-dot" class="status-dot red"></div>
+            <span id="status-text">Checking sensor status...</span>
+        </div>
+
+        <!-- Right-aligned Navigation Links -->
+        <div class="nav-links-right">
+            <a href="{{ url_for('logout') }}" >Home</a>
+            <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+        </div>
+    </div>
+
+    <!-- Dashboard Content -->
+    <div class="dashboard-container">
+        <h1>Uploader Dashboard</h1>
+        <p class="welcome-message">You are logged in as <b>{{ current_user.username }}</b></p>
+
+        <!-- Start Monitoring Button -->
+        <button onclick="window.location.href='{{ url_for('startMonitoring') }}'" class="start-btn" id="startMonitoring">Start Monitoring</button>
+    </div>
+
+    <script>
+        // Function to check sensor status every few seconds
+        function checkSensorStatus() {
+            fetch('/sensor_status')
+                .then(response => response.json())
+                .then(data => {
+                    const statusDot = document.getElementById('status-dot');
+                    const statusText = document.getElementById('status-text');
+                    if (data.status === "connected") {
+                        statusDot.className = "status-dot green";
+                        statusText.innerText = "Sensor Connected";
+                    } else {
+                        statusDot.className = "status-dot red";
+                        statusText.innerText = "No Sensor Detected";
+                    }
+                })
+                .catch(error => console.error('Error fetching sensor status:', error));
+        }
+
+        document.getElementById('startMonitoring').addEventListener('click', function () {
+            alert("Monitoring Started!");
+        });
+
+        // Check the sensor status when the page loads and every 10 seconds after
+        checkSensorStatus();
+        setInterval(checkSensorStatus, 10000);  // Check sensor status every 10 seconds
+    </script>
+
+</body>
+</html>
