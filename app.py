@@ -1,10 +1,14 @@
+
+
 from flask import Flask, render_template, redirect, url_for, request, flash, jsonify, Response
 from flask_login import login_user, login_required, logout_user, current_user, LoginManager
+from flask_socketio import SocketIO
 
 import receiver
 from data_models import User, db
 
 app = Flask(__name__)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Set up the database (using SQLite in this example)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///heartMonitorDB.db'
@@ -18,9 +22,11 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 
 # Create the database tables
-#with app.app_context():
-    #db.drop_all()
-    #db.create_all()
+# with app.app_context():
+# db.drop_all()
+# db.create_all()
+
+started = False
 
 
 # Load user for Flask-Login
@@ -110,6 +116,7 @@ def login():
 @login_required
 def dashboard():
     if current_user.role == 'uploader':
+        receiver.main_receiver()
         return render_template('uploader_dashboard.html')  # Redirect to uploader dashboard
     elif current_user.role == 'supervisor':
         return render_template('supervisor_dashboard.html')  # Redirect to supervisor dashboard
@@ -128,8 +135,21 @@ def logout():
 @app.route('/startMonitoring')
 @login_required
 def startMonitoring():
+    global started
     print("startMonitoring")
-    receiver.main_receiver()
+    if not started:
+        receiver.start_receiver(current_user.id)
+        started = True
+    else:
+        receiver.start_stop_signal(start=True)
+    return Response(status=204)
+
+
+@app.route('/stopMonitoring')
+@login_required
+def stopMonitoring():
+    print("stopMonitoring")
+    receiver.start_stop_signal(start=False)
     return Response(status=204)
 
 
