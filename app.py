@@ -1,11 +1,14 @@
-
+import json
+import threading
+from datetime import datetime
+import socket
 
 from flask import Flask, render_template, redirect, url_for, request, flash, jsonify, Response
 from flask_login import login_user, login_required, logout_user, current_user, LoginManager
-from flask_socketio import SocketIO
+from flask_socketio import SocketIO, send, disconnect, join_room, leave_room
 
 import receiver
-from data_models import User, db
+from data_models import User, db, PPGData
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -27,7 +30,135 @@ login_manager.login_view = 'login'
 # db.create_all()
 
 started = False
+############################################
+HOST = '192.168.101.13'  # Server address
+PORT = 5050  # Port number
+CONNECTED = False
+conn: socket
 
+
+def send_to_client(records):
+    if not records:
+        return
+
+    user_id = records[0].user_id
+    room = f"user_{user_id}"
+
+    payload = {
+        'timestamps': [r.timestamp.timestamp() for r in records],
+        'red_signals': [r.red_signal for r in records],
+        'ir_signals': [r.ir_signal for r in records]
+    }
+
+    socketio.emit('ppg_data', payload, room=room)
+    print(f"Sent {len(records)} PPG records to user {user_id}")
+
+
+@socketio.on('connect')
+def handle_connect():
+    if not current_user.is_authenticated:
+        print("Unauthorized WebSocket connection.")
+        return disconnect()
+
+    user_id = current_user.id
+    room = f"user_{user_id}"  # Create a unique room
+    # Add user to their room
+    join_room(room)
+
+    print(f"User {user_id} connected and joined room {room}")
+
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    if current_user.is_authenticated:
+        user_id = current_user.id
+        room = f"user_{user_id}"
+        leave_room(room)
+
+    print(f"User {current_user.id} disconnected.")
+
+
+# Function to store data in bulk
+def save_batch(data_batch, user_id):
+    # inserts a batch of PPG records into the database
+    records = [
+        PPGData(
+            user_id=user_id,
+            timestamp=datetime.fromtimestamp(data['t']),
+            red_signal=data['red'],
+            ir_signal=data['ir']
+        ) for data in data_batch
+    ]
+
+    db.session.bulk_save_objects(records)
+    db.session.commit()
+    print(f"Inserted {len(records)} records into the database.")
+
+    send_to_client(records)
+
+
+# Function to handle client connection
+def handle_client(user_id):
+    """Receives data from the client, processes it, and stores it efficiently."""
+    global CONNECTED
+    print("Waiting for connection...")
+    with app.app_context():
+        start_stop_signal(start=True)
+
+        buffer = ""
+
+        while True:
+            data = conn.recv(4096).decode('utf-8')  # Larger buffer for batch data
+            if not data:
+                break  # Stop if connection is closed
+
+            buffer += data  # Append received data to buffer
+
+            while "\n" in buffer:
+                line, buffer = buffer.split("\n", 1)  # Extract one message at a time
+                print(line)
+                try:
+                    batch_data = json.loads(line)  # Expecting a list of 100 records
+                    if isinstance(batch_data, list):
+                        save_batch(batch_data, user_id)  # Store all 100 records at once
+                    else:
+                        print("Error: Expected a list of records.")
+                except json.JSONDecodeError:
+                    print("Error decoding JSON:", line)
+
+        print("Closing connection.")
+        conn.close()
+
+
+# Function to start/stop monitoring
+def start_stop_signal(start):
+    if start:
+        conn.sendall("START\n".encode('utf-8'))
+        print("Sent START signal to client.")
+    else:
+        conn.sendall("STOP\n".encode('utf-8'))
+        print("Sent STOP signal to client.")
+
+
+# Main receiver function
+def main_receiver():
+    global CONNECTED, conn
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind((HOST, PORT))
+    sock.listen(1)
+    conn, addr = sock.accept()
+    print(f"Connected by {addr}")
+    CONNECTED = True
+
+
+# Function to start receiver from Flask
+def start_receiver(user_id):
+    global CONNECTED
+    threading.Thread(target=handle_client, args=(user_id,), daemon=True).start()
+    print("Receiver started in a new thread.")
+
+
+############################################
 
 # Load user for Flask-Login
 @login_manager.user_loader
@@ -145,6 +276,16 @@ def startMonitoring():
     return Response(status=204)
 
 
+@socketio.on('connect')
+def handle_connect():
+    print("Client connected")
+
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    print("Client disconnected")
+
+
 @app.route('/stopMonitoring')
 @login_required
 def stopMonitoring():
@@ -154,4 +295,4 @@ def stopMonitoring():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    socketio.run(app, host='0.0.0.0', port=5000)

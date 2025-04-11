@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.js"></script>
+    <script src="https://cdn.socket.io/4.4.0/socket.io.min.js"></script>
     <title>Uploader Dashboard</title>
     <style>
         body {
@@ -63,8 +63,13 @@
             margin-right: 10px;
         }
 
-        .red { background-color: red; }
-        .green { background-color: green; }
+        .red {
+            background-color: red;
+        }
+
+        .green {
+            background-color: green;
+        }
 
         .start-stop-buttons {
             display: flex;
@@ -82,11 +87,21 @@
             border: none;
         }
 
-        .start-btn { background-color: #4CAF50; }
-        .logout-btn { background-color: #e74c3c; }
+        .start-btn {
+            background-color: #4CAF50;
+        }
 
-        .start-btn:hover { background-color: #45a049; }
-        .logout-btn:hover { background-color: #c0392b; }
+        .logout-btn {
+            background-color: #e74c3c;
+        }
+
+        .start-btn:hover {
+            background-color: #45a049;
+        }
+
+        .logout-btn:hover {
+            background-color: #c0392b;
+        }
 
         #plot {
             width: 80%;
@@ -98,100 +113,140 @@
 
 <body>
 
-    <!-- Top Bar -->
-    <div class="top-bar">
-        <div class="sensor-status">
-            <div id="status-dot" class="status-dot red"></div>
-            <span id="status-text">Checking sensor status...</span>
-        </div>
-
-        <div class="nav-links-right">
-            <a href="{{ url_for('home') }}">Home</a>
-            <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
-        </div>
+<!-- Top Bar -->
+<div class="top-bar">
+    <div class="sensor-status">
+        <div id="status-dot" class="status-dot red"></div>
+        <span id="status-text">Checking sensor status...</span>
     </div>
 
-    <!-- Dashboard Content -->
-    <div class="dashboard-container">
-        <h1>Uploader Dashboard</h1>
-        <p class="welcome-message">You are logged in as <b>{{ current_user.username }}</b></p>
+    <div class="nav-links-right">
+        <a href="{{ url_for('home') }}">Home</a>
+        <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+    </div>
+</div>
 
-        <div class="start-stop-buttons">
-            <button onclick="startMonitoring()" class="start-btn" id="startMonitoring">Start Monitoring</button>
-            <button onclick="stopMonitoring()" class="logout-btn" id="stopMonitoring">Stop Monitoring</button>
-        </div>
+<!-- Dashboard Content -->
+<div class="dashboard-container">
+    <h1>Uploader Dashboard</h1>
+    <p class="welcome-message">You are logged in as <b>{{ current_user.username }}</b></p>
 
-        <div id="plot"></div>
+    <div class="start-stop-buttons">
+        <button onclick="startMonitoring()" class="start-btn" id="startMonitoring">Start Monitoring</button>
+        <button onclick="stopMonitoring()" class="logout-btn" id="stopMonitoring">Stop Monitoring</button>
     </div>
 
-    <script>
-        let socket = io.connect('http://' + document.domain + ':' + location.port);
-        let isMonitoring = false;
+    <div id="plot"></div>
+    <div id="debug-output"
+         style="white-space: pre-wrap; border: 1px solid black; padding: 10px; margin-top: 10px;"></div>
+</div>
 
-        // Initialize Plotly
-        let data = [{
-            x: [],
-            y: [],
-            mode: 'lines',
-            line: { color: 'blue' }
-        }];
+<script>
+    let socket = io.connect('http://' + document.domain + ':' + location.port);
+    let isMonitoring = false;
+    let maxPoints = 100;  // Maximum number of points in the graph
 
-        let layout = {
-            title: 'Live PPG Data',
-            xaxis: { title: 'Time' },
-            yaxis: { title: 'Signal Value', range: [0, 15000] }
-        };
+    // Initialize Plotly
+    let trace = {
+        x: [],
+        y: [],
+        mode: 'lines',
+        line: {color: 'blue'},
+        name: 'Red Signal'
+    };
 
-        Plotly.newPlot('plot', data, layout);
+    let layout = {
+        title: 'Live PPG Data',
+        xaxis: {title: 'Time', type: 'date'},
+        yaxis: {title: 'Signal Value', range: [0, 15000]}
+    };
 
-        function startMonitoring() {
-            isMonitoring = true;
-            fetch('{{ url_for("startMonitoring") }}') // Start monitoring on the server
-                .then(() => console.log("Started monitoring"))
-                .catch(error => console.error('Error starting monitoring:', error));
+    Plotly.newPlot('plot', [trace], layout);
+
+    function startMonitoring() {
+        isMonitoring = true;
+        fetch('/startMonitoring') // Update this if your endpoint is different
+            .then(() => console.log("Started monitoring"))
+            .catch(error => console.error('Error starting monitoring:', error));
+    }
+
+    function stopMonitoring() {
+        isMonitoring = false;
+        fetch('/stopMonitoring') // Update this if your endpoint is different
+            .then(() => console.log("Stopped monitoring"))
+            .catch(error => console.error('Error stopping monitoring:', error));
+    }
+
+    socket.on('ppg_data', function (data) {
+        console.log("Received data:", data);
+
+        ////////////////////////////////////////////////////////// Update the debug output div
+        let debugDiv = document.getElementById("debug-output");
+
+        if (!data.timestamps || !data.red_signals) {
+            debugDiv.innerText = "⚠️ Invalid data format received!";
+            console.error("Invalid data format received!", data);
+            return;
         }
 
-        function stopMonitoring() {
-            isMonitoring = false;
-            fetch('{{ url_for("stopMonitoring") }}') // Stop monitoring on the server
-                .then(() => console.log("Stopped monitoring"))
-                .catch(error => console.error('Error stopping monitoring:', error));
+        let formattedData = "📡 Received Data:\n";
+        for (let i = 0; i < data.timestamps.length; i++) {
+            let timestamp = new Date(data.timestamps[i] * 1000).toLocaleTimeString(); // Convert timestamp
+            let red_signal = data.red_signals[i];
+
+            formattedData += `⏱ ${timestamp} | 🔴 Red Signal: ${red_signal}\n`;
         }
 
-        socket.on('ppg_data', function(data) {
-            console.log(data)
-            //if (!isMonitoring) return; // Only update graph if monitoring is active
-            for (let i = 0; i < data.timestamps.length; i++) {
-                let timestamp = new Date(data.timestamps[i] * 1000);
-                let red_signal = data.red_signals[i];
+        debugDiv.innerText = formattedData; // Display data in div
+        ////////////////////////////////////////////////////////////////////////////////////
 
-                Plotly.extendTraces('plot', { x: [[timestamp]], y: [[red_signal]] }, [0]);
+        if (!isMonitoring) return; // Only update graph if monitoring is active
 
-                let maxPoints = 100;
-                Plotly.relayout('plot', { xaxis: { range: [timestamp - maxPoints, timestamp] } });
-            }
-        });
+        let updateX = [];
+        let updateY = [];
 
-        function checkSensorStatus() {
-            fetch('/sensor_status')
-                .then(response => response.json())
-                .then(data => {
-                    const statusDot = document.getElementById('status-dot');
-                    const statusText = document.getElementById('status-text');
-                    if (data.status === "connected") {
-                        statusDot.className = "status-dot green";
-                        statusText.innerText = "Sensor Connected";
-                    } else {
-                        statusDot.className = "status-dot red";
-                        statusText.innerText = "No Sensor Detected";
-                    }
-                })
-                .catch(error => console.error('Error fetching sensor status:', error));
+        for (let i = 0; i < data.timestamps.length; i++) {
+            let timestamp = new Date(data.timestamps[i] * 1000);  // Convert Unix timestamp to JS Date
+            let red_signal = data.red_signals[i];
+
+            updateX.push(timestamp);
+            updateY.push(red_signal);
         }
 
-        checkSensorStatus();
-        setInterval(checkSensorStatus, 10000);
-    </script>
+        // Append new data
+        Plotly.extendTraces('plot', {x: [updateX], y: [updateY]}, [0]);
+
+        // Keep only the latest maxPoints points
+        let plotData = document.getElementById('plot').data[0];
+        if (plotData.x.length > maxPoints) {
+            plotData.x.splice(0, plotData.x.length - maxPoints);
+            plotData.y.splice(0, plotData.y.length - maxPoints);
+            Plotly.redraw('plot');
+        }
+    });
+
+    // Sensor status check
+    function checkSensorStatus() {
+        fetch('/sensor_status')
+            .then(response => response.json())
+            .then(data => {
+                const statusDot = document.getElementById('status-dot');
+                const statusText = document.getElementById('status-text');
+                if (data.status === "connected") {
+                    statusDot.className = "status-dot green";
+                    statusText.innerText = "Sensor Connected";
+                } else {
+                    statusDot.className = "status-dot red";
+                    statusText.innerText = "No Sensor Detected";
+                }
+            })
+            .catch(error => console.error('Error fetching sensor status:', error));
+    }
+
+    checkSensorStatus();
+    setInterval(checkSensorStatus, 10000);
+
+</script>
 
 </body>
 </html>
