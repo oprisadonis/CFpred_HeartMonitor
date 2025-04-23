@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://code.jquery.com/jquery-2.1.4.js"
+            integrity="sha256-siFczlgw4jULnUICcdm9gjQPZkw/YPDqhQ9+nAOScE4=" crossorigin="anonymous"></script>
     <script src="https://cdn.socket.io/4.4.0/socket.io.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.4/socket.io.js" crossorigin="anonymous"></script>
     <title>Uploader Dashboard</title>
     <style>
         body {
@@ -103,7 +106,7 @@
             background-color: #c0392b;
         }
 
-        #plot {
+        #chart {
             width: 80%;
             height: 400px;
             margin-top: 30px;
@@ -136,94 +139,60 @@
         <button onclick="stopMonitoring()" class="logout-btn" id="stopMonitoring">Stop Monitoring</button>
     </div>
 
-    <div id="plot"></div>
+    <div id="chart"></div>
     <div id="debug-output"
          style="white-space: pre-wrap; border: 1px solid black; padding: 10px; margin-top: 10px;"></div>
 </div>
 
 <script>
-    let socket = io.connect('http://' + document.domain + ':' + location.port);
     let isMonitoring = false;
-    let maxPoints = 100;  // Maximum number of points in the graph
-
-    // Initialize Plotly
-    let trace = {
-        x: [],
-        y: [],
+    var cnt = 0;
+    Plotly.plot('chart', [{
+        y: [0],
+        text: [""],
         mode: 'lines',
-        line: {color: 'blue'},
-        name: 'Red Signal'
-    };
+        type: 'line'
+    }]);
 
-    let layout = {
-        title: 'Live PPG Data',
-        xaxis: {title: 'Time', type: 'date'},
-        yaxis: {title: 'Signal Value', range: [0, 15000]}
-    };
+    document.addEventListener("DOMContentLoaded", function () {
+        $(document).ready(function () {
+            const socket = io.connect();
+            socket.on("updateSensorData", async function (msg) {
+                console.log("Received sensorData :: " + msg.date + " :: " + msg.value);
+                updateChart(msg.date, msg.value);
+                await delay(10);
+            });
+        });
 
-    Plotly.newPlot('plot', [trace], layout);
+    });
+
+
+    function updateChart(date, value) {
+        Plotly.extendTraces('chart', {y: [[value]], text: [[date]]}, [0]);
+        cnt++;
+        if (cnt > 200) {
+            Plotly.relayout('chart', {
+                xaxis: {
+                    range: [cnt - 200, cnt]
+                }
+            })
+        }
+    }
 
     function startMonitoring() {
         isMonitoring = true;
-        fetch('/startMonitoring') // Update this if your endpoint is different
+        fetch('/startMonitoring')
             .then(() => console.log("Started monitoring"))
             .catch(error => console.error('Error starting monitoring:', error));
     }
 
     function stopMonitoring() {
         isMonitoring = false;
-        fetch('/stopMonitoring') // Update this if your endpoint is different
+        fetch('/stopMonitoring')
             .then(() => console.log("Stopped monitoring"))
             .catch(error => console.error('Error stopping monitoring:', error));
     }
 
-    socket.on('ppg_data', function (data) {
-        console.log("Received data:", data);
-
-        ////////////////////////////////////////////////////////// Update the debug output div
-        let debugDiv = document.getElementById("debug-output");
-
-        if (!data.timestamps || !data.red_signals) {
-            debugDiv.innerText = "⚠️ Invalid data format received!";
-            console.error("Invalid data format received!", data);
-            return;
-        }
-
-        let formattedData = "📡 Received Data:\n";
-        for (let i = 0; i < data.timestamps.length; i++) {
-            let timestamp = new Date(data.timestamps[i] * 1000).toLocaleTimeString(); // Convert timestamp
-            let red_signal = data.red_signals[i];
-
-            formattedData += `⏱ ${timestamp} | 🔴 Red Signal: ${red_signal}\n`;
-        }
-
-        debugDiv.innerText = formattedData; // Display data in div
-        ////////////////////////////////////////////////////////////////////////////////////
-
-        if (!isMonitoring) return; // Only update graph if monitoring is active
-
-        let updateX = [];
-        let updateY = [];
-
-        for (let i = 0; i < data.timestamps.length; i++) {
-            let timestamp = new Date(data.timestamps[i] * 1000);  // Convert Unix timestamp to JS Date
-            let red_signal = data.red_signals[i];
-
-            updateX.push(timestamp);
-            updateY.push(red_signal);
-        }
-
-        // Append new data
-        Plotly.extendTraces('plot', {x: [updateX], y: [updateY]}, [0]);
-
-        // Keep only the latest maxPoints points
-        let plotData = document.getElementById('plot').data[0];
-        if (plotData.x.length > maxPoints) {
-            plotData.x.splice(0, plotData.x.length - maxPoints);
-            plotData.y.splice(0, plotData.y.length - maxPoints);
-            Plotly.redraw('plot');
-        }
-    });
 
     // Sensor status check
     function checkSensorStatus() {
@@ -237,7 +206,7 @@
                     statusText.innerText = "Sensor Connected";
                 } else {
                     statusDot.className = "status-dot red";
-                    statusText.innerText = "No Sensor Detected";
+                    statusText.innerText = "No Sensor Connected";
                 }
             })
             .catch(error => console.error('Error fetching sensor status:', error));

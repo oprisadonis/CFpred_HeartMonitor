@@ -1,22 +1,24 @@
 import json
 import threading
+from threading import Lock
 from datetime import datetime
 import socket
-
+from queue import Queue
 from flask import Flask, render_template, redirect, url_for, request, flash, jsonify, Response
 from flask_login import login_user, login_required, logout_user, current_user, LoginManager
-from flask_socketio import SocketIO, send, disconnect, join_room, leave_room
-
-import receiver
+from flask_socketio import SocketIO, disconnect, join_room, leave_room
 from data_models import User, db, PPGData
 
+thread = None
+thread_lock = Lock()
+
 app = Flask(__name__)
-socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Set up the database (using SQLite in this example)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///heartMonitorDB.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.secret_key = 'a534dabbd9f53eda44ebeb65a4743699269d369a9020764280c0d4eb1761beb8'
+socketio = SocketIO(app, cors_allowed_origins='*', async_mode='threading')
 
 # Initialize the database and login manager
 db.init_app(app)  # Initialize db with app
@@ -36,51 +38,52 @@ PORT = 5050  # Port number
 CONNECTED = False
 conn: socket
 
+# def send_to_client(records):
+#     if not records:
+#         return
+#
+#     user_id = records[0].user_id
+#     room = f"user_{user_id}"
+#
+#     payload = {
+#         'timestamps': [r.timestamp.timestamp() for r in records],
+#         'red_signals': [r.red_signal for r in records],
+#         'ir_signals': [r.ir_signal for r in records]
+#     }
+#
+#     socketio.emit('ppg_data', payload, room=room)
+#     print(f"Sent {len(records)} PPG records to user {user_id}")
 
-def send_to_client(records):
-    if not records:
-        return
+q = Queue()
 
-    user_id = records[0].user_id
-    room = f"user_{user_id}"
 
-    payload = {
-        'timestamps': [r.timestamp.timestamp() for r in records],
-        'red_signals': [r.red_signal for r in records],
-        'ir_signals': [r.ir_signal for r in records]
-    }
-
-    socketio.emit('ppg_data', payload, room=room)
-    print(f"Sent {len(records)} PPG records to user {user_id}")
+def background_thread():
+    global q
+    while True:
+        if not q.empty():
+            e = q.get()
+            socketio.emit('updateSensorData', {'value': e.red_signal, "date": e.timestamp.timestamp()})
 
 
 @socketio.on('connect')
-def handle_connect():
-    if not current_user.is_authenticated:
-        print("Unauthorized WebSocket connection.")
-        return disconnect()
-
-    user_id = current_user.id
-    room = f"user_{user_id}"  # Create a unique room
-    # Add user to their room
-    join_room(room)
-
-    print(f"User {user_id} connected and joined room {room}")
+def connect():
+    global thread
+    print('Client connected')
+    with thread_lock:
+        if thread is None:
+            print('THREAD IS NON')
+            thread = socketio.start_background_task(background_thread)
 
 
 @socketio.on('disconnect')
-def handle_disconnect():
-    if current_user.is_authenticated:
-        user_id = current_user.id
-        room = f"user_{user_id}"
-        leave_room(room)
-
-    print(f"User {current_user.id} disconnected.")
+def disconnect():
+    print('Client disconnected', request.sid)
 
 
 # Function to store data in bulk
 def save_batch(data_batch, user_id):
     # inserts a batch of PPG records into the database
+    global q
     records = [
         PPGData(
             user_id=user_id,
@@ -93,8 +96,13 @@ def save_batch(data_batch, user_id):
     db.session.bulk_save_objects(records)
     db.session.commit()
     print(f"Inserted {len(records)} records into the database.")
+    for r in records:
+        q.put(r)
+    print(f"Q: {q.qsize()}")
 
-    send_to_client(records)
+
+
+    # send_to_client(records)
 
 
 # Function to handle client connection
@@ -116,7 +124,7 @@ def handle_client(user_id):
 
             while "\n" in buffer:
                 line, buffer = buffer.split("\n", 1)  # Extract one message at a time
-                print(line)
+                #print(line)
                 try:
                     batch_data = json.loads(line)  # Expecting a list of 100 records
                     if isinstance(batch_data, list):
@@ -176,7 +184,7 @@ def reset_db():
 
 # Connection & sensor check
 def check_sensor_status():
-    if receiver.CONNECTED:
+    if CONNECTED:
         return "connected"
     else:
         return "disconnected"
@@ -247,7 +255,7 @@ def login():
 @login_required
 def dashboard():
     if current_user.role == 'uploader':
-        receiver.main_receiver()
+        main_receiver()
         return render_template('uploader_dashboard.html')  # Redirect to uploader dashboard
     elif current_user.role == 'supervisor':
         return render_template('supervisor_dashboard.html')  # Redirect to supervisor dashboard
@@ -269,30 +277,20 @@ def startMonitoring():
     global started
     print("startMonitoring")
     if not started:
-        receiver.start_receiver(current_user.id)
+        start_receiver(current_user.id)
         started = True
     else:
-        receiver.start_stop_signal(start=True)
+        start_stop_signal(start=True)
     return Response(status=204)
-
-
-@socketio.on('connect')
-def handle_connect():
-    print("Client connected")
-
-
-@socketio.on('disconnect')
-def handle_disconnect():
-    print("Client disconnected")
 
 
 @app.route('/stopMonitoring')
 @login_required
 def stopMonitoring():
     print("stopMonitoring")
-    receiver.start_stop_signal(start=False)
+    start_stop_signal(start=False)
     return Response(status=204)
 
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000)
+    socketio.run(app, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
