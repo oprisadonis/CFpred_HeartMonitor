@@ -146,7 +146,9 @@
 
 <script>
     let isMonitoring = false;
-    var cnt = 0;
+    let buffer = [];
+    const MAX_POINTS = 200;
+    let cnt = 0;
     Plotly.plot('chart', [{
         y: [0],
         text: [""],
@@ -168,16 +170,24 @@
 
 
     function updateChart(date, value) {
-        Plotly.extendTraces('chart', {y: [[value]], text: [[date]]}, [0]);
-        cnt++;
-        if (cnt > 200) {
-            Plotly.relayout('chart', {
-                xaxis: {
-                    range: [cnt - 200, cnt]
-                }
-            })
-        }
+    cnt++;
+    buffer.push(value);
+    if (buffer.length > MAX_POINTS) {
+        buffer.shift();
     }
+
+    Plotly.extendTraces('chart', { y: [[value]], text: [[date]] }, [0]);
+
+    if (cnt > MAX_POINTS) {
+        Plotly.relayout('chart', {
+            xaxis: { range: [cnt - MAX_POINTS, cnt] },
+            yaxis: {
+                range: [Math.min(...buffer), Math.max(...buffer)]
+            }
+        });
+    }
+}
+
 
     function startMonitoring() {
         isMonitoring = true;
