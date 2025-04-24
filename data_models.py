@@ -12,6 +12,10 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(150), nullable=False)
     role = db.Column(db.String(20), nullable=False)  # "uploader" or "supervisor"
 
+    def __init__(self, username, user_type):
+        self.username = username
+        self.role = user_type
+
     def __repr__(self):
         return f'<User {self.username} - {self.role}>'
 

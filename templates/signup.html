@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -66,25 +65,29 @@
             outline: none;
         }
 
-        .form-group button {
+        .btnn {
             width: 100%;
             padding: 12px;
-            background-color: #70b867;
+            background-color: #92d18c;
             border: none;
             border-radius: 6px;
             color: white;
+            justify-content: center;
+            text-align: center;
             font-size: 16px;
             cursor: pointer;
             transition: background-color 0.3s ease;
         }
 
-        .form-group button:hover {
-            background-color: #5a9c52;
+        .btnn:hover {
+            background-color: #70b867;
         }
 
-        .flash-message {
+        .flash-message,
+        .form-errors {
             color: #e74c3c;
             margin-top: 10px;
+            font-size: 14px;
         }
 
         .link {
@@ -102,38 +105,47 @@
         }
     </style>
 </head>
-
 <body>
 
 <div class="signup-container">
     <h2>Signup</h2>
     <form method="POST">
+        {{ f.hidden_tag() }}
+
         <div class="form-group">
-            <label for="username">Username</label>
-            <input type="text" id="username" name="username" required>
+            {{ f.username.label }}
+            {{ f.username(class="form-control") }}
+            {% for error in f.username.errors %}
+                <div class="form-errors">{{ error }}</div>
+            {% endfor %}
         </div>
 
         <div class="form-group">
-            <label for="user_type">User Type</label>
-            <select name="user_type" id="user_type" required>
-                <option value="" disabled selected>Select your role</option>
-                <option value="uploader">Uploader</option>
-                <option value="supervisor">Supervisor</option>
-            </select>
+            {{ f.user_type.label }}
+            {{ f.user_type(class="form-control") }}
+            {% for error in f.user_type.errors %}
+                <div class="form-errors">{{ error }}</div>
+            {% endfor %}
         </div>
 
         <div class="form-group">
-            <label for="password">Password</label>
-            <input type="password" id="password" name="password" required>
+            {{ f.password.label }}
+            {{ f.password(class="form-control") }}
+            {% for error in f.password.errors %}
+                <div class="form-errors">{{ error }}</div>
+            {% endfor %}
         </div>
 
         <div class="form-group">
-            <label for="confirm_password">Confirm Password</label>
-            <input type="password" id="confirm_password" name="confirm_password" required>
+            {{ f.confirm_password.label }}
+            {{ f.confirm_password(class="form-control") }}
+            {% for error in f.confirm_password.errors %}
+                <div class="form-errors">{{ error }}</div>
+            {% endfor %}
         </div>
 
-        <div class="form-group">
-            <button type="submit">Signup</button>
+        <div>
+            {{ f.submit(class = "form-group btnn") }}
         </div>
 
         <div class="flash-message">
@@ -149,5 +161,4 @@
 </div>
 
 </body>
-
 </html>

@@ -7,6 +7,11 @@ from queue import Queue
 from flask import Flask, render_template, redirect, url_for, request, flash, jsonify, Response
 from flask_login import login_user, login_required, logout_user, current_user, LoginManager
 from flask_socketio import SocketIO, disconnect, join_room, leave_room
+from flask_wtf import FlaskForm
+from wtforms.fields.choices import SelectField
+from wtforms.fields.simple import StringField, PasswordField, SubmitField
+from wtforms.validators import DataRequired, EqualTo, Length, Regexp
+
 from data_models import User, db, PPGData
 
 thread = None
@@ -26,10 +31,30 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
-# Create the database tables
+
+class RegForm(FlaskForm):
+    username = StringField('Username', validators=[DataRequired()])
+    user_type = SelectField('User Type',  choices=[('uploader', 'Uploader'), ('supervisor', 'Supervisor')], validators=[DataRequired()],)
+    password = PasswordField('Password', validators=[
+        DataRequired(),
+        Length(min=8, message="Password must be at least 8 characters long."),
+        Regexp("^(?=.*?[A-Za-z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$",
+               message="Password must include at least one letter, one number, and one special character.")
+    ])
+    confirm_password = PasswordField('Confirm Password', validators=[DataRequired(), EqualTo('password')])
+    submit = SubmitField('Register')
+
+
+class LoginForm(FlaskForm):
+    username = StringField('Username', validators=[DataRequired()])
+    password = PasswordField('Password', validators=[DataRequired()])
+    submit = SubmitField('Login')
+
+
+# # Create the database tables
 # with app.app_context():
-# db.drop_all()
-# db.create_all()
+#     db.drop_all()
+#     db.create_all()
 
 started = False
 ############################################
@@ -100,8 +125,6 @@ def save_batch(data_batch, user_id):
         q.put(r)
     print(f"Q: {q.qsize()}")
 
-
-
     # send_to_client(records)
 
 
@@ -124,7 +147,7 @@ def handle_client(user_id):
 
             while "\n" in buffer:
                 line, buffer = buffer.split("\n", 1)  # Extract one message at a time
-                #print(line)
+                # print(line)
                 try:
                     batch_data = json.loads(line)  # Expecting a list of 100 records
                     if isinstance(batch_data, list):
@@ -206,40 +229,31 @@ def home():
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        confirm_password = request.form['confirm_password']
-        user_type = request.form['user_type']  # Get user role from form
+    f = RegForm()
+    if f.validate_on_submit():
+        username = f.username.data
+        user_type = f.user_type.data
+        password = f.password.data
 
-        if password != confirm_password:
-            flash("Passwords do not match!")
-            return redirect(url_for('signup'))
-
-        # Check if username exists
-        existing_user = User.query.filter_by(username=username).first()
-        if existing_user:
-            flash("Username already exists!")
-            return redirect(url_for('signup'))
-
-        # Create new user
-        new_user = User(username=username, role=user_type)
+        # create new user
+        new_user = User(username=username, user_type=user_type)
         new_user.set_password(password)
-
+        # insert new_user into the database
         db.session.add(new_user)
         db.session.commit()
 
         flash("User successfully registered!")
         return redirect(url_for('login'))
 
-    return render_template('signup.html')
+    return render_template('signup.html', f=f)
 
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
+    f = LoginForm()
+    if f.validate_on_submit():
+        username = f.username.data
+        password = f.password.data
 
         user = User.query.filter_by(username=username).first()
         if user and user.check_password(password):
@@ -248,7 +262,7 @@ def login():
         else:
             flash('Invalid username or password')
 
-    return render_template('login.html')
+    return render_template('login.html', f=f)
 
 
 @app.route('/dashboard')
@@ -274,7 +288,6 @@ def logout():
 @login_required
 def connectSensor():
     main_receiver()
-
 
 
 @app.route('/startMonitoring')
