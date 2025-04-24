@@ -80,7 +80,7 @@
             margin-bottom: 20px;
         }
 
-        .start-btn, .logout-btn {
+        .start-btn, .logout-btn, .standard-btn {
             padding: 10px 20px;
             color: white;
             border-radius: 4px;
@@ -89,6 +89,9 @@
             transition: background-color 0.3s ease;
             border: none;
         }
+        .standard-btn{
+            background-color: #A9A9A9;
+        }
 
         .start-btn {
             background-color: #4CAF50;
@@ -96,6 +99,9 @@
 
         .logout-btn {
             background-color: #e74c3c;
+        }
+        .standard-btn:hover{
+            background-color: #708090;
         }
 
         .start-btn:hover {
@@ -120,11 +126,13 @@
 <div class="top-bar">
     <div class="sensor-status">
         <div id="status-dot" class="status-dot red"></div>
-        <span id="status-text">Checking sensor status...</span>
+        <span id="status-text">No sensor connected</span>
+        <button onclick="connectSensor()" class="standard-btn" style="margin-left: 20px">Connect Sensor</button>
+
     </div>
 
     <div class="nav-links-right">
-        <a href="{{ url_for('home') }}">Home</a>
+        <a href="{{ url_for('home') }}" class="standard-btn">Home</a>
         <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
     </div>
 </div>
@@ -201,6 +209,11 @@
         fetch('/stopMonitoring')
             .then(() => console.log("Stopped monitoring"))
             .catch(error => console.error('Error stopping monitoring:', error));
+    }
+    function connectSensor(){
+        document.getElementById('status-text').innerText = "Checking sensor status..."
+        fetch('/connectSensor')
+            .catch(error => console.error('Error connecting sensor', error));
     }
 
 

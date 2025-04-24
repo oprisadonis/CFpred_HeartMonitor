@@ -255,7 +255,6 @@ def login():
 @login_required
 def dashboard():
     if current_user.role == 'uploader':
-        main_receiver()
         return render_template('uploader_dashboard.html')  # Redirect to uploader dashboard
     elif current_user.role == 'supervisor':
         return render_template('supervisor_dashboard.html')  # Redirect to supervisor dashboard
@@ -269,6 +268,13 @@ def dashboard():
 def logout():
     logout_user()
     return redirect(url_for('home'))
+
+
+@app.route('/connectSensor')
+@login_required
+def connectSensor():
+    main_receiver()
+
 
 
 @app.route('/startMonitoring')
