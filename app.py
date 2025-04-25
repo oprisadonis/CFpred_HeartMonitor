@@ -19,14 +19,14 @@ thread_lock = Lock()
 
 app = Flask(__name__)
 
-# Set up the database (using SQLite in this example)
+# Set up the database
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///heartMonitorDB.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.secret_key = 'a534dabbd9f53eda44ebeb65a4743699269d369a9020764280c0d4eb1761beb8'
 socketio = SocketIO(app, cors_allowed_origins='*', async_mode='threading')
 
 # Initialize the database and login manager
-db.init_app(app)  # Initialize db with app
+db.init_app(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
@@ -62,24 +62,8 @@ HOST = '192.168.101.13'  # Server address
 PORT = 5050  # Port number
 CONNECTED = False
 conn: socket
-
-# def send_to_client(records):
-#     if not records:
-#         return
-#
-#     user_id = records[0].user_id
-#     room = f"user_{user_id}"
-#
-#     payload = {
-#         'timestamps': [r.timestamp.timestamp() for r in records],
-#         'red_signals': [r.red_signal for r in records],
-#         'ir_signals': [r.ir_signal for r in records]
-#     }
-#
-#     socketio.emit('ppg_data', payload, room=room)
-#     print(f"Sent {len(records)} PPG records to user {user_id}")
-
-q = Queue()
+q = Queue() # for the live plot in uploader_dashboard
+fiveMinq = Queue() # for the analysis of data
 
 
 def background_thread():
