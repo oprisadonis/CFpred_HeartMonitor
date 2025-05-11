@@ -11,7 +11,7 @@ from flask_wtf import FlaskForm
 from wtforms.fields.choices import SelectField
 from wtforms.fields.simple import StringField, PasswordField, SubmitField
 from wtforms.validators import DataRequired, EqualTo, Length, Regexp
-
+from fiveMinAnalysis import FiveMinAnalysis
 from data_models import User, db, PPGData
 
 thread = None
@@ -34,7 +34,8 @@ login_manager.login_view = 'login'
 
 class RegForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
-    user_type = SelectField('User Type',  choices=[('uploader', 'Uploader'), ('supervisor', 'Supervisor')], validators=[DataRequired()],)
+    user_type = SelectField('User Type', choices=[('uploader', 'Uploader'), ('supervisor', 'Supervisor')],
+                            validators=[DataRequired()], )
     password = PasswordField('Password', validators=[
         DataRequired(),
         Length(min=8, message="Password must be at least 8 characters long."),
@@ -62,8 +63,9 @@ HOST = '192.168.101.13'  # Server address
 PORT = 5050  # Port number
 CONNECTED = False
 conn: socket
-q = Queue() # for the live plot in uploader_dashboard
-fiveMinq = Queue() # for the analysis of data
+q = Queue()  # for the live plot in uploader_dashboard
+# five minutes analysis
+FMA = FiveMinAnalysis()  # for the analysis of data
 
 
 def background_thread():
@@ -92,7 +94,7 @@ def disconnect():
 # Function to store data in bulk
 def save_batch(data_batch, user_id):
     # inserts a batch of PPG records into the database
-    global q
+    global q, fiveMinq
     records = [
         PPGData(
             user_id=user_id,
@@ -107,9 +109,8 @@ def save_batch(data_batch, user_id):
     print(f"Inserted {len(records)} records into the database.")
     for r in records:
         q.put(r)
-    print(f"Q: {q.qsize()}")
 
-    # send_to_client(records)
+    print(f"Q: {q.qsize()}")
 
 
 # Function to handle client connection
