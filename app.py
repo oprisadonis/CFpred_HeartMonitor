@@ -64,8 +64,6 @@ PORT = 5050  # Port number
 CONNECTED = False
 conn: socket
 q = Queue()  # for the live plot in uploader_dashboard
-# five minutes analysis
-FMA = FiveMinAnalysis()  # for the analysis of data
 
 
 def background_thread():
@@ -91,10 +89,15 @@ def disconnect():
     print('Client disconnected', request.sid)
 
 
+skip_counter = 0
+
+
 # Function to store data in bulk
-def save_batch(data_batch, user_id):
+def save_batch(data_batch, user_id, fma):
+    global skip_counter
+    skip_counter = skip_counter + 1
     # inserts a batch of PPG records into the database
-    global q, fiveMinq
+    global q
     records = [
         PPGData(
             user_id=user_id,
@@ -109,6 +112,8 @@ def save_batch(data_batch, user_id):
     print(f"Inserted {len(records)} records into the database.")
     for r in records:
         q.put(r)
+    if skip_counter > 10:
+        fma.addData(records=records)
 
     print(f"Q: {q.qsize()}")
 
@@ -117,6 +122,8 @@ def save_batch(data_batch, user_id):
 def handle_client(user_id):
     """Receives data from the client, processes it, and stores it efficiently."""
     global CONNECTED
+    # five minutes analysis Object
+    fma = FiveMinAnalysis(db=db, user_id=user_id)
     print("Waiting for connection...")
     with app.app_context():
         start_stop_signal(start=True)
@@ -136,7 +143,7 @@ def handle_client(user_id):
                 try:
                     batch_data = json.loads(line)  # Expecting a list of 100 records
                     if isinstance(batch_data, list):
-                        save_batch(batch_data, user_id)  # Store all 100 records at once
+                        save_batch(batch_data, user_id, fma)  # Store all 100 records at once
                     else:
                         print("Error: Expected a list of records.")
                 except json.JSONDecodeError:
