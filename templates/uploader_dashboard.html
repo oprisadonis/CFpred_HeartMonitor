@@ -145,6 +145,7 @@
     <div class="start-stop-buttons">
         <button onclick="startMonitoring()" class="start-btn" id="startMonitoring">Start Monitoring</button>
         <button onclick="stopMonitoring()" class="logout-btn" id="stopMonitoring">Stop Monitoring</button>
+        <button onclick="activateFilter()"  id="filterBtn" class="standard-btn" style="margin-left: 100px">Activate filter</button>
     </div>
 
     <div id="chart"></div>
@@ -155,7 +156,7 @@
 <script>
     let isMonitoring = false;
     let buffer = [];
-    const MAX_POINTS = 200;
+    const MAX_POINTS = 400;
     let cnt = 0;
     Plotly.plot('chart', [{
         y: [0],
@@ -170,7 +171,7 @@
             socket.on("updateSensorData", async function (msg) {
                 console.log("Received sensorData :: " + msg.date + " :: " + msg.value);
                 updateChart(msg.date, msg.value);
-                await delay(10);
+                //await delay(5);
             });
         });
 
@@ -210,6 +211,19 @@
             .then(() => console.log("Stopped monitoring"))
             .catch(error => console.error('Error stopping monitoring:', error));
     }
+
+    function activateFilter() {
+        const button = document.getElementById("filterBtn");
+        if (button.innerText === "Activate filter") {
+            button.innerText = "Deactivate filter";
+        } else {
+            button.innerText = "Activate filter";
+        }
+        fetch('/activateFilter')
+            .then(() => console.log("Filter activated/deactivated"))
+            .catch(error => console.error('Error with the filter', error));
+    }
+
     function connectSensor(){
         document.getElementById('status-text').innerText = "Checking sensor status..."
         fetch('/connectSensor')

@@ -65,13 +65,45 @@ CONNECTED = False
 conn: socket
 q = Queue()  # for the live plot in uploader_dashboard
 
+useFilter = False
 
+
+# def background_thread():
+#     global q
+#     filterQ = Queue()
+#     while True:
+#         if not q.empty():
+#             if useFilter:
+#                 if filterQ.qsize() >= 4:
+#                     filterQ.get()
+#                     e = q.get()
+#                     filterQ.put(e.red_signal)
+#                     avg = sum(list(filterQ.queue)) / filterQ.qsize()
+#                     socketio.emit('updateSensorData', {'value': avg, "date": e.timestamp.timestamp()})
+#                     filterQ.
+#                 else:
+#                     e = q.get()
+#                     filterQ.put(e.red_signal)
+#             else:
+#                 e = q.get()
+#                 socketio.emit('updateSensorData', {'value': e.red_signal, "date": e.timestamp.timestamp()})
 def background_thread():
+    # logic of 25Hz for both with or without filter
     global q
+    filterQ = []
     while True:
         if not q.empty():
-            e = q.get()
-            socketio.emit('updateSensorData', {'value': e.red_signal, "date": e.timestamp.timestamp()})
+            if useFilter:
+                e = q.get()
+                filterQ.append(e.red_signal)
+                if len(filterQ) >= 4:
+                    avg = sum(filterQ) / len(filterQ)
+                    socketio.emit('updateSensorData', {'value': avg, "date": e.timestamp.timestamp()})
+                    filterQ = []
+            else:
+                e = q.get()
+                socketio.emit('updateSensorData', {'value': e.red_signal, "date": e.timestamp.timestamp()})
+
 
 
 @socketio.on('connect')
@@ -301,6 +333,13 @@ def stopMonitoring():
     print("stopMonitoring")
     start_stop_signal(start=False)
     return Response(status=204)
+
+
+@app.route('/activateFilter')
+@login_required
+def activateFilter():
+    global useFilter
+    useFilter = not useFilter
 
 
 if __name__ == '__main__':
