@@ -64,7 +64,7 @@ PORT = 5050  # Port number
 CONNECTED = False
 conn: socket
 q = Queue()  # for the live plot in uploader_dashboard
-
+CURRENT_UPLOADER = -1
 useFilter = False
 
 
@@ -196,13 +196,15 @@ def start_stop_signal(start):
 
 # Main receiver function
 def main_receiver():
-    global CONNECTED, conn
+    global CONNECTED, conn, CURRENT_UPLOADER
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind((HOST, PORT))
     sock.listen(1)
     conn, addr = sock.accept()
     print(f"Connected by {addr}")
     CONNECTED = True
+    CURRENT_UPLOADER = current_user.id
+
 
 
 # Function to start receiver from Flask
@@ -297,7 +299,8 @@ def dashboard():
         return render_template('uploader_dashboard.html', supervisor_accesses=supervisor_accesses,
                                drawer_open=drawer_open)  # Redirect to uploader dashboard
     elif current_user.role == 'supervisor':
-        return render_template('supervisor_dashboard.html')  # Redirect to supervisor dashboard
+        uploaders = SupervisorAccess.query.filter_by(supervisor_id=current_user.id).all()
+        return render_template('supervisor_dashboard.html', uploaders=uploaders)  # Redirect to supervisor dashboard
     else:
         flash("Unauthorized access!")
         return redirect(url_for('home'))
@@ -314,6 +317,15 @@ def logout():
 @login_required
 def connectSensor():
     main_receiver()
+
+
+@app.route("/is_user_active/<userid>")
+def is_user_active(userid):
+    if started:
+        is_active = True
+    else:
+        is_active = False
+    return jsonify({"active": is_active})
 
 
 @app.route('/startMonitoring')

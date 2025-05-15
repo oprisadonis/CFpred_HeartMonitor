@@ -5,6 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://code.jquery.com/jquery-2.1.4.js"
+            integrity="sha256-siFczlgw4jULnUICcdm9gjQPZkw/YPDqhQ9+nAOScE4=" crossorigin="anonymous"></script>
+    <script src="https://cdn.socket.io/4.4.0/socket.io.min.js"></script>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -14,30 +19,8 @@
             background-image: url('/static/hh.webp');
         }
 
-        /* Top Bar */
-        .top-bar {
-            background-color: transparent/*#92d18c*/;
-            color: white;
-            padding: 15px 20px;
-            display: flex;
-            justify-content: flex-end;
-            align-items: center;
-        }
-
-        .top-bar .nav-links a {
-            color: white;
-            text-decoration: none;
-            margin: 0 15px;
-            font-size: 16px;
-        }
-
-        .top-bar .nav-links a:hover {
-            text-decoration: underline;
-        }
-
-        /* Main Dashboard */
         .dashboard-container {
-           /* padding: 40px;*/
+            /* padding: 40px;*/
             text-align: center;
         }
 
@@ -53,23 +36,6 @@
             margin-bottom: 30px;
         }
 
-        .logout-btn {
-            padding: 10px 20px;
-            background-color: #e74c3c;
-            color: white;
-            border-radius: 4px;
-            text-decoration: none;
-            font-size: 16px;
-            transition: background-color 0.3s ease;
-        }
-
-        .logout-btn:hover {
-            background-color: #c0392b;
-        }
-
-        .logout-btn:active {
-            background-color: #8e2121;
-        }
 
         /* Flexbox layout for centering */
         .dashboard-container {
@@ -79,27 +45,232 @@
             align-items: center;
         }
 
+        /*#################3*/
+        .navbar {
+            overflow: hidden;
+            background-color: #848c74;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .navbar a {
+            float: left;
+            font-size: 16px;
+            color: white;
+            text-align: center;
+            padding: 14px 16px;
+            text-decoration: none;
+        }
+
+        .dropdown {
+            float: right;
+            overflow: hidden;
+        }
+
+        .dropdown .dropbtn {
+            cursor: pointer;
+            font-size: 16px;
+            border: none;
+            outline: none;
+            color: white;
+            padding: 14px 16px;
+            background-color: inherit;
+            font-family: inherit;
+            margin: 0;
+        }
+
+        .navbar a:hover, .dropdown:hover .dropbtn, .dropbtn:focus {
+            background-color: #6b735d;
+        }
+
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            background-color: #f9f9f9;
+            min-width: 160px;
+            box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
+            z-index: 1;
+        }
+
+        .dropdown-content a {
+            float: none;
+            color: black;
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+            text-align: left;
+        }
+
+        #chart {
+            width: 80%;
+            height: 400px;
+            margin-top: 30px;
+        }
+
+        .center-wrapper {
+            display: flex;
+            justify-content: center; /* Center horizontally */
+            visibility: hidden;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .dropdown-content a:hover {
+            background-color: #ddd;
+        }
+
+        .logout {
+            background-color: rgba(255, 0, 0, 0.5)
+        }
+
+        .logout:hover {
+            background-color: rgba(255, 100, 100, 0.8) !important;
+        }
+
+        .show {
+            display: block;
+        }
+
+        .even {
+            background-color: beige;
+        }
+
+        .odd {
+            background-color: white;
+        }
+
     </style>
 </head>
 
 <body>
 
-    <!-- Top Bar -->
-    <div class="top-bar">
-        <div class="nav-links">
-            <a href="{{ url_for('logout') }}">Home</a>
-            <a href="{{ url_for('logout') }}">Plot</a>
-            <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+<!-- Top Bar -->
+<div class="navbar">
+    <a href="{{ url_for('logout') }}" class="logout" style="float: right">Logout</a>
+    <a onclick="showPart('liveplot')">Live Plot</a>
+    <a>BPM</a>
+    <a>IBI</a>
+    <a>BREATHING RATE</a>
+    <div class="dropdown">
+        <button class="dropbtn" onclick="toggleDropdown()" id="dropdownButton">Select uploader
+            <i class="fa fa-caret-down"></i>
+        </button>
+        <div class="dropdown-content" id="myDropdown">
+            {% for u in uploaders %}
+                <a href="#" onclick="selectUploader('{{ u.uploader.username }}', {{ u.uploader.id }})"
+                   class="{% if loop.index0 % 2 == 0 %}even{% else %}odd{% endif %}">{{ u.uploader.username }}</a>
+            {% endfor %}
         </div>
     </div>
+</div>
 
-    <!-- Dashboard Content -->
-    <div class="dashboard-container">
-        <h1>Welcome to your Dashboard</h1>
-        <h1>Supervisor</h1>
-        <p class="welcome-message">You are logged in as {{ current_user.username }}</p>
-    </div>
+<!-- Dashboard Welcome Content -->
+<div class="dashboard-container" id="part-welcome">
+    <h1>Supervisor Dashboard - Welcome {{ current_user.username }}</h1>
+</div>
 
+<!-- Live Plot -->
+<div id="part-liveplot" class="center-wrapper">
+    <h1 id="plot_text">Live plot</h1>
+    <div id="chart"></div>
+</div>
+
+
+<script>
+    /* When the user clicks on the button,
+    toggle between hiding and showing the dropdown content */
+    function toggleDropdown() {
+        document.getElementById("myDropdown").classList.toggle("show");
+    }
+
+    // Close the dropdown if the user clicks outside of it
+    window.onclick = function (e) {
+        if (!e.target.matches('.dropbtn')) {
+            var myDropdown = document.getElementById("myDropdown");
+            if (myDropdown.classList.contains('show')) {
+                myDropdown.classList.remove('show');
+            }
+        }
+    }
+    let selectedUploaderId = null;
+    //live plot
+    let isMonitoring = false;
+    let buffer = [];
+    const MAX_POINTS = 400;
+    let socket = null
+    let cnt = 0;
+    Plotly.plot('chart', [{
+        y: [0],
+        text: [""],
+        mode: 'lines',
+        type: 'line'
+    }]);
+
+    function selectUploader(username, id) {
+        selectedUploaderId = id;
+        document.getElementById("dropdownButton").innerText = username.concat(" ↓");
+        document.getElementById("myDropdown").classList.remove("show");
+
+        fetch(`/is_user_active/${id}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.active) {
+                    // User is uploading, connect to socket and show plot
+                    socket = io.connect();
+                    socket.on('connect', () => {
+                        console.log('Socket connected!');
+                        socket.on("updateSensorData", function (msg) {
+                            console.log("Received sensorData :: " + msg.date + " :: " + msg.value);
+                            updateChart(msg.date, msg.value);
+                        });
+                    });
+
+                } else {
+                    // User is not uploading
+                    if (socket) socket.disconnect();
+
+                    document.getElementById("chart").style.visibility = 'hidden';
+                    document.getElementById("plot_text").innerText = "No data streaming"
+                }
+            });
+    }
+
+
+    function updateChart(date, value) {
+        cnt++;
+        buffer.push(value);
+        if (buffer.length > MAX_POINTS) {
+            buffer.shift();
+        }
+
+        Plotly.extendTraces('chart', {y: [[value]], text: [[date]]}, [0]);
+
+        if (cnt > MAX_POINTS) {
+            Plotly.relayout('chart', {
+                xaxis: {range: [cnt - MAX_POINTS, cnt]},
+                yaxis: {
+                    range: [Math.min(...buffer), Math.max(...buffer)]
+                }
+            });
+        }
+    }
+
+
+    function startMonitoring() {
+        isMonitoring = true;
+    }
+
+    function stopMonitoring() {
+        isMonitoring = false;
+    }
+
+    function showPart(name) {
+        // Hide the other top bar parts
+        document.querySelectorAll('[id^="part"]').forEach(el => el.style.visibility = 'hidden');
+        // Show the selected part
+        const section = document.getElementById(`part-${name}`);
+        if (section) section.style.visibility = 'visible';
+    }
+</script>
 </body>
 
 </html>
