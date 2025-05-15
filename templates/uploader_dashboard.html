@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <script src="https://code.jquery.com/jquery-2.1.4.js"
             integrity="sha256-siFczlgw4jULnUICcdm9gjQPZkw/YPDqhQ9+nAOScE4=" crossorigin="anonymous"></script>
@@ -84,12 +85,14 @@
             padding: 10px 20px;
             color: white;
             border-radius: 4px;
+            width: 170px;
             font-size: 16px;
             cursor: pointer;
             transition: background-color 0.3s ease;
             border: none;
         }
-        .standard-btn{
+
+        .standard-btn {
             background-color: #A9A9A9;
         }
 
@@ -100,7 +103,8 @@
         .logout-btn {
             background-color: #e74c3c;
         }
-        .standard-btn:hover{
+
+        .standard-btn:hover {
             background-color: #708090;
         }
 
@@ -117,23 +121,139 @@
             height: 400px;
             margin-top: 30px;
         }
+
+        .drawer {
+            position: fixed;
+            top: -100%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 320px;
+            max-height: 400px;
+            background-color: #f4f4f4;
+            padding: 20px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            border-radius: 15px;
+            transition: top 0.3s ease-in-out;
+            z-index: 1000;
+        }
+
+        .drawer.active {
+            top: 20px;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.4);
+            display: none;
+            z-index: 900;
+        }
+
+        .overlay.active {
+            display: block;
+        }
+
+        input {
+            padding: 10px;
+            margin: 10px;
+            width: 90%;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .supervisor-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            list-style: none;
+            border-radius: 6px;
+            margin-bottom: 5px;
+        }
+
+        .supervisor-item.even {
+            background-color: lightgray;
+        }
+
+        .supervisor-item.odd {
+            background-color: lightslategray;
+        }
+
+        .supervisor-name {
+            font-size: 16px;
+            color: #333;
+        }
     </style>
 </head>
 
 <body>
+<!--manage supervisor access-->
+<div id="drawer" class="drawer">
+
+    <h2>Manage Supervisor Access</h2>
+
+    <form method="POST" action="{{ url_for('add_supervisor_access') }}"
+          style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
+        <input type="text" name="username" placeholder="Supervisor username" required>
+        <button type="submit" class="standard-btn" style="padding-top: 10px;">Grant Access</button>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <ul style="list-style: none; padding: 0;">
+                    {% for category, message in messages %}
+                        <li style="color:
+                                {% if category == 'error' %}red
+                                {% elif category == 'success' %}green
+                                {% elif category == 'warning' %}orange
+                                {% else %}black
+                                {% endif %};">
+                            {{ message }}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+    </form>
+
+
+    <h3>Supervisors with Access:</h3>
+    <hr style="height: 3px; background-color:  #333333">
+    <ul id="supervisor-list" style="padding: 0; margin: 0;">
+        {% for access in supervisor_accesses %}
+            <li class="supervisor-item {% if loop.index0 % 2 == 0 %}even{% else %}odd{% endif %}">
+                <span class="supervisor-name">{{ access.supervisor.username }}</span>
+                <form method="POST"
+                      action="{{ url_for('remove_supervisor_access', supervisor_id=access.supervisor.id) }}"
+                      style="margin: 0;">
+                    <button type="submit" class="fa fa-trash logout-btn"
+                            style="font-size: 20px; width: 30px; height:30px; padding: 2px 2px"></button>
+                </form>
+            </li>
+        {% endfor %}
+    </ul>
+</div>
+
+<!-- Overlay that dims the background -->
+<div id="overlay" class="overlay" onclick="toggleDrawer()"></div>
 
 <!-- Top Bar -->
 <div class="top-bar">
     <div class="sensor-status">
         <div id="status-dot" class="status-dot red"></div>
         <span id="status-text">No sensor connected</span>
-        <button onclick="connectSensor()" class="standard-btn" style="margin-left: 20px">Connect Sensor</button>
 
     </div>
 
     <div class="nav-links-right">
+        <button class="standard-btn" style="width: 150px" onclick="toggleDrawer()">Manage Access</button>
         <a href="{{ url_for('home') }}" class="standard-btn">Home</a>
         <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+
     </div>
 </div>
 
@@ -145,7 +265,9 @@
     <div class="start-stop-buttons">
         <button onclick="startMonitoring()" class="start-btn" id="startMonitoring">Start Monitoring</button>
         <button onclick="stopMonitoring()" class="logout-btn" id="stopMonitoring">Stop Monitoring</button>
-        <button onclick="activateFilter()"  id="filterBtn" class="standard-btn" style="margin-left: 100px">Activate filter</button>
+        <button onclick="activateFilter()" id="filterBtn" class="standard-btn" style="margin-left: 100px">Activate
+            filter
+        </button>
     </div>
 
     <div id="chart"></div>
@@ -179,23 +301,23 @@
 
 
     function updateChart(date, value) {
-    cnt++;
-    buffer.push(value);
-    if (buffer.length > MAX_POINTS) {
-        buffer.shift();
-    }
+        cnt++;
+        buffer.push(value);
+        if (buffer.length > MAX_POINTS) {
+            buffer.shift();
+        }
 
-    Plotly.extendTraces('chart', { y: [[value]], text: [[date]] }, [0]);
+        Plotly.extendTraces('chart', {y: [[value]], text: [[date]]}, [0]);
 
-    if (cnt > MAX_POINTS) {
-        Plotly.relayout('chart', {
-            xaxis: { range: [cnt - MAX_POINTS, cnt] },
-            yaxis: {
-                range: [Math.min(...buffer), Math.max(...buffer)]
-            }
-        });
+        if (cnt > MAX_POINTS) {
+            Plotly.relayout('chart', {
+                xaxis: {range: [cnt - MAX_POINTS, cnt]},
+                yaxis: {
+                    range: [Math.min(...buffer), Math.max(...buffer)]
+                }
+            });
+        }
     }
-}
 
 
     function startMonitoring() {
@@ -224,7 +346,7 @@
             .catch(error => console.error('Error with the filter', error));
     }
 
-    function connectSensor(){
+    function connectSensor() {
         document.getElementById('status-text').innerText = "Checking sensor status..."
         fetch('/connectSensor')
             .catch(error => console.error('Error connecting sensor', error));
@@ -248,9 +370,21 @@
             })
             .catch(error => console.error('Error fetching sensor status:', error));
     }
+    // activate/deactivate the supervisor manage access form
+    function toggleDrawer() {
+        const drawer = document.getElementById('drawer');
+        const overlay = document.getElementById('overlay');
+        drawer.classList.toggle('active');
+        overlay.classList.toggle('active');
+    }
 
     checkSensorStatus();
     setInterval(checkSensorStatus, 10000);
+    {% if drawer_open %}
+        window.onload = function () {
+            toggleDrawer();
+        };
+    {% endif %}
 
 </script>
 

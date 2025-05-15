@@ -71,3 +71,17 @@ class PPGFeatures(db.Model):
 
     # Relationship to User model
     user = db.relationship('User', backref=db.backref('ppg_features', lazy=True))
+
+
+class SupervisorAccess(db.Model):
+    __tablename__ = 'supervisor_access'
+
+    uploader_id = db.Column(db.Integer, db.ForeignKey('user.id'), primary_key=True)
+    supervisor_id = db.Column(db.Integer, db.ForeignKey('user.id'), primary_key=True)
+
+    # Relationships to User model
+    uploader = db.relationship('User', foreign_keys=[uploader_id], backref='granted_supervisors')
+    supervisor = db.relationship('User', foreign_keys=[supervisor_id], backref='accessible_uploaders')
+
+    def __repr__(self):
+        return f"<Access uploader={self.uploader_id} supervisor={self.supervisor_id}>"

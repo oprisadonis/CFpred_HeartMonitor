@@ -12,7 +12,7 @@ from wtforms.fields.choices import SelectField
 from wtforms.fields.simple import StringField, PasswordField, SubmitField
 from wtforms.validators import DataRequired, EqualTo, Length, Regexp
 from fiveMinAnalysis import FiveMinAnalysis
-from data_models import User, db, PPGData
+from data_models import User, db, PPGData, SupervisorAccess
 
 thread = None
 thread_lock = Lock()
@@ -53,9 +53,9 @@ class LoginForm(FlaskForm):
 
 
 # # Create the database tables
-# with app.app_context():
-#     db.drop_all()
-#     db.create_all()
+with app.app_context():
+    # db.drop_all()
+    db.create_all()
 
 started = False
 ############################################
@@ -103,7 +103,6 @@ def background_thread():
             else:
                 e = q.get()
                 socketio.emit('updateSensorData', {'value': e.red_signal, "date": e.timestamp.timestamp()})
-
 
 
 @socketio.on('connect')
@@ -293,7 +292,10 @@ def login():
 @login_required
 def dashboard():
     if current_user.role == 'uploader':
-        return render_template('uploader_dashboard.html')  # Redirect to uploader dashboard
+        supervisor_accesses = SupervisorAccess.query.filter_by(uploader_id=current_user.id).all()
+        drawer_open = request.args.get('drawer_open', False)
+        return render_template('uploader_dashboard.html', supervisor_accesses=supervisor_accesses,
+                               drawer_open=drawer_open)  # Redirect to uploader dashboard
     elif current_user.role == 'supervisor':
         return render_template('supervisor_dashboard.html')  # Redirect to supervisor dashboard
     else:
@@ -333,6 +335,56 @@ def stopMonitoring():
     print("stopMonitoring")
     start_stop_signal(start=False)
     return Response(status=204)
+
+
+##################################################################
+@app.route('/add_supervisor_access', methods=['POST'])
+@login_required
+def add_supervisor_access():
+    username = request.form['username']
+    supervisor = User.query.filter_by(username=username, role='supervisor').first()
+
+    if not supervisor:
+        flash('Supervisor not found in the system.', 'error')
+        return redirect(url_for('dashboard', drawer_open=True))
+
+    # search for the access
+    existing_access = SupervisorAccess.query.filter_by(
+        uploader_id=current_user.id,
+        supervisor_id=supervisor.id
+    ).first()
+
+    if existing_access:
+        flash('Access already granted.', 'warning')
+        return redirect(url_for('dashboard', drawer_open=True))
+
+    # Add new relationship
+    access = SupervisorAccess(uploader_id=current_user.id, supervisor_id=supervisor.id)
+    db.session.add(access)
+    db.session.commit()
+    flash('Supervisor access granted.', 'success')
+    return redirect(url_for('dashboard', drawer_open=True))
+
+
+@app.route('/remove_supervisor_access/<int:supervisor_id>', methods=['POST'])
+@login_required
+def remove_supervisor_access(supervisor_id):
+    access = SupervisorAccess.query.filter_by(
+        uploader_id=current_user.id,
+        supervisor_id=supervisor_id
+    ).first()
+
+    if not access:
+        flash('Supervisor access not found.', 'error')
+        return redirect(url_for('dashboard', drawer_open=True))
+
+    db.session.delete(access)
+    db.session.commit()
+    flash('Supervisor access removed.', 'success')
+    return redirect(url_for('dashboard', drawer_open=True))
+
+
+##################################################################
 
 
 @app.route('/activateFilter')

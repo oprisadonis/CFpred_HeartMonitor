@@ -12,6 +12,10 @@
     <orderEntry type="library" name="socket.io" level="application" />
     <orderEntry type="library" name="plotly-latest" level="application" />
     <orderEntry type="library" name="jquery-2.1.4" level="application" />
+    <orderEntry type="library" name="font-awesome" level="application" />
+    <orderEntry type="library" name="plotly-latest" level="application" />
+    <orderEntry type="library" name="socket.io" level="application" />
+    <orderEntry type="library" name="jquery-2.1.4" level="application" />
   </component>
   <component name="TemplatesService">
     <option name="TEMPLATE_CONFIGURATION" value="Jinja2" />
