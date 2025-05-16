@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <script src="https://code.jquery.com/jquery-2.1.4.js"
             integrity="sha256-siFczlgw4jULnUICcdm9gjQPZkw/YPDqhQ9+nAOScE4=" crossorigin="anonymous"></script>
@@ -50,6 +51,7 @@
             overflow: hidden;
             background-color: #848c74;
             font-family: Arial, Helvetica, sans-serif;
+            height: 45px;
         }
 
         .navbar a {
@@ -138,6 +140,26 @@
             background-color: white;
         }
 
+        .calendar {
+            color: white;
+            float: right;
+            height: 100%;
+            width: 120px;
+            font-size: 16px;
+            background-color: transparent;
+            border: none;
+            margin: 0;
+            outline: none;
+            text-align: center;
+            text-decoration: none;
+            padding: -7px -2px;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .calendar::placeholder {
+            color: white;
+        }
+
     </style>
 </head>
 
@@ -161,6 +183,9 @@
             {% endfor %}
         </div>
     </div>
+    <a style="float: right"> <input class="calendar" id="datePicker" type="text" placeholder="Select a date ↓"> </a>
+
+
 </div>
 
 <!-- Dashboard Welcome Content -->
@@ -174,7 +199,7 @@
     <div id="chart"></div>
 </div>
 
-
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
     /* When the user clicks on the button,
     toggle between hiding and showing the dropdown content */
@@ -205,33 +230,43 @@
         type: 'line'
     }]);
 
+    document.addEventListener("DOMContentLoaded", function () {
+        $(document).ready(function () {
+            const socket = io.connect();
+            socket.on("updateSensorData", async function (msg) {
+                console.log("Received sensorData :: " + msg.date + " :: " + msg.value);
+                updateChart(msg.date, msg.value);
+                //await delay(5);
+            });
+        });
+
+    });
+
     function selectUploader(username, id) {
         selectedUploaderId = id;
         document.getElementById("dropdownButton").innerText = username.concat(" ↓");
         document.getElementById("myDropdown").classList.remove("show");
+        //fetch available date for user
+        fetch(`/get_dates/${id}`)
+            .then(response => response.json())
+            .then(data => {
+                setCalender(username, id, data.dates);
+            });
+
 
         fetch(`/is_user_active/${id}`)
             .then(response => response.json())
             .then(data => {
-                if (data.active) {
-                    // User is uploading, connect to socket and show plot
-                    socket = io.connect();
-                    socket.on('connect', () => {
-                        console.log('Socket connected!');
-                        socket.on("updateSensorData", function (msg) {
-                            console.log("Received sensorData :: " + msg.date + " :: " + msg.value);
-                            updateChart(msg.date, msg.value);
-                        });
-                    });
-
-                } else {
-                    // User is not uploading
-                    if (socket) socket.disconnect();
-
-                    document.getElementById("chart").style.visibility = 'hidden';
-                    document.getElementById("plot_text").innerText = "No data streaming"
+                    if (data.active) {
+                        document.getElementById("chart").style.visibility = 'visible';
+                        document.getElementById("plot_text").innerText = "Live plot"
+                    } else {
+                        document.getElementById("chart").style.visibility = 'hidden';
+                        document.getElementById("plot_text").innerText = "No data streaming"
+                    }
                 }
-            });
+            )
+        ;
     }
 
 
@@ -268,7 +303,27 @@
         document.querySelectorAll('[id^="part"]').forEach(el => el.style.visibility = 'hidden');
         // Show the selected part
         const section = document.getElementById(`part-${name}`);
+        if (selectedUploaderId == null)
+            document.getElementById("chart").style.visibility = 'hidden';
+        document.getElementById("plot_text").innerText = "No data streaming"
         if (section) section.style.visibility = 'visible';
+    }
+
+    let calendar = flatpickr("#datePicker", {
+        enable: [],
+        dateFormat: "Y-m-d"
+    });
+
+    function setCalender(username, id, dates) {
+        if (dates) {
+            calendar.set("enable", dates);
+            calendar.setDate(new Date(), false);
+            calendar.clear();
+        } else {
+            calendar.set("enable", []);
+            calendar.setDate(new Date(), false);
+            calendar.clear();
+        }
     }
 </script>
 </body>

@@ -4,15 +4,16 @@ from threading import Lock
 from datetime import datetime
 import socket
 from queue import Queue
-from flask import Flask, render_template, redirect, url_for, request, flash, jsonify, Response
+from flask import Flask, render_template, redirect, url_for, request, flash, jsonify, Response, session
 from flask_login import login_user, login_required, logout_user, current_user, LoginManager
 from flask_socketio import SocketIO, disconnect, join_room, leave_room
 from flask_wtf import FlaskForm
+from sqlalchemy import func
 from wtforms.fields.choices import SelectField
 from wtforms.fields.simple import StringField, PasswordField, SubmitField
 from wtforms.validators import DataRequired, EqualTo, Length, Regexp
 from fiveMinAnalysis import FiveMinAnalysis
-from data_models import User, db, PPGData, SupervisorAccess
+from data_models import User, db, PPGData, SupervisorAccess, PPGFeatures
 
 thread = None
 thread_lock = Lock()
@@ -203,7 +204,7 @@ def main_receiver():
     conn, addr = sock.accept()
     print(f"Connected by {addr}")
     CONNECTED = True
-    CURRENT_UPLOADER = current_user.id
+    CURRENT_UPLOADER = session['userid']
 
 
 
@@ -283,6 +284,7 @@ def login():
         user = User.query.filter_by(username=username).first()
         if user and user.check_password(password):
             login_user(user)  # Log the user in
+            session['userid'] = current_user.id
             return redirect(url_for('dashboard'))  # Redirect to the dashboard after successful login
         else:
             flash('Invalid username or password')
@@ -321,7 +323,10 @@ def connectSensor():
 
 @app.route("/is_user_active/<userid>")
 def is_user_active(userid):
-    if started:
+    print(f'userid: {userid}\ncurrent_uploader: {CURRENT_UPLOADER}' )
+    print(f'userid: {userid} (type: {type(userid)})')
+    print(f'CURRENT_UPLOADER: {CURRENT_UPLOADER} (type: {type(CURRENT_UPLOADER)})')
+    if int(userid) == int(CURRENT_UPLOADER):
         is_active = True
     else:
         is_active = False
@@ -396,14 +401,25 @@ def remove_supervisor_access(supervisor_id):
     return redirect(url_for('dashboard', drawer_open=True))
 
 
-##################################################################
-
-
 @app.route('/activateFilter')
 @login_required
 def activateFilter():
     global useFilter
     useFilter = not useFilter
+
+
+@app.route("/get_dates/<int:user_id>", methods=["GET"])
+@login_required
+def get_dates(user_id):
+    unique_dates = (
+        db.session.query(func.date(PPGFeatures.start_time))
+        .filter(PPGFeatures.user_id == int(user_id))
+        .distinct()
+        .order_by(func.date(PPGFeatures.start_time))
+        .all()
+    )
+    dates = [d[0] for d in unique_dates]
+    return jsonify({"dates": dates})
 
 
 if __name__ == '__main__':
