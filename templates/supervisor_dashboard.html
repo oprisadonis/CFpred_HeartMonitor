@@ -102,16 +102,15 @@
             text-align: left;
         }
 
-        #chart {
+        #chart, #bmp-plot {
             width: 80%;
             height: 400px;
             margin-top: 30px;
         }
 
         .center-wrapper {
-            display: flex;
-            justify-content: center; /* Center horizontally */
-            visibility: hidden;
+            display: none;
+            justify-content: center;
             flex-direction: column;
             align-items: center;
         }
@@ -167,11 +166,11 @@
 
 <!-- Top Bar -->
 <div class="navbar">
-    <a href="{{ url_for('logout') }}" class="logout" style="float: right">Logout</a>
+    <a href="{{ url_for('logout') }}" class="logout" style="float: right" onclick="localStorage.clear()">Logout</a>
     <a onclick="showPart('liveplot')">Live Plot</a>
-    <a>BPM</a>
-    <a>IBI</a>
-    <a>BREATHING RATE</a>
+    <a onclick="showPart('bpm')">BPM</a>
+    <a onclick="showPart('ibi')">IBI</a>
+    <a onclick="showPart('breathingrate')">BREATHING RATE</a>
     <div class="dropdown">
         <button class="dropbtn" onclick="toggleDropdown()" id="dropdownButton">Select uploader
             <i class="fa fa-caret-down"></i>
@@ -197,6 +196,22 @@
 <div id="part-liveplot" class="center-wrapper">
     <h1 id="plot_text">Live plot</h1>
     <div id="chart"></div>
+</div>
+
+<!-- BPM -->
+<div id="part-bpm" class="center-wrapper">
+    <h1>BPM</h1>
+    <div id="bmp-plot"></div>
+</div>
+
+<!-- IBI -->
+<div id="part-ibi" class="center-wrapper">
+    <h1>IBI</h1>
+</div>
+
+<!-- BREATHING RATE -->
+<div id="part-breathingrate" class="center-wrapper">
+    <h1>BREATHING RATE</h1>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -246,6 +261,10 @@
         selectedUploaderId = id;
         document.getElementById("dropdownButton").innerText = username.concat(" ↓");
         document.getElementById("myDropdown").classList.remove("show");
+
+        localStorage.setItem('selectedUploader', username);
+        localStorage.setItem('selectedUploaderId', id);
+
         //fetch available date for user
         fetch(`/get_dates/${id}`)
             .then(response => response.json())
@@ -299,20 +318,35 @@
     }
 
     function showPart(name) {
+        localStorage.setItem('currentSection', name);
         // Hide the other top bar parts
-        document.querySelectorAll('[id^="part"]').forEach(el => el.style.visibility = 'hidden');
+        document.querySelectorAll('[id^="part"]').forEach(el => {
+            el.style.display = 'none'
+        });
         // Show the selected part
         const section = document.getElementById(`part-${name}`);
         if (selectedUploaderId == null)
             document.getElementById("chart").style.visibility = 'hidden';
         document.getElementById("plot_text").innerText = "No data streaming"
-        if (section) section.style.visibility = 'visible';
+        if (section)
+            section.style.display = 'flex'
+        switch (name) {
+            case "bpm":
+                bpmPlot();
+                break;
+            default:
+                break;
+        }
     }
 
     let calendar = flatpickr("#datePicker", {
         enable: [],
-        dateFormat: "Y-m-d"
+        dateFormat: "Y-m-d",
+        onChange: function () {
+            showPart(localStorage.getItem('currentSection'))
+        }
     });
+
 
     function setCalender(username, id, dates) {
         if (dates) {
@@ -325,6 +359,62 @@
             calendar.clear();
         }
     }
+
+    function bpmPlot() {
+        let date = calendar.selectedDates[0]
+        if (date) {
+            date = date.toLocaleDateString("fr-CA", {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit"
+            });
+        } else {
+            date = localStorage.getItem('selectedDate')
+        }
+        if (date)
+            localStorage.setItem('selectedDate', date);
+        let times = []
+        let bpm = []
+        const plt = document.getElementById("bmp-plot")
+        fetch(`/get_bpm_for_date/${date}/${selectedUploaderId}`)
+            .then(response => response.json())
+            .then(data => {
+                l = data.data
+                for (let i = 0; i < l.length; i++) {
+                    times.push(l[i][0]);
+                    bpm.push(l[i][1]);
+                }
+
+                if (plt && plt.data && plt.data.length > 0) {
+                    Plotly.deleteTraces(plt, 0);
+                }
+
+                Plotly.plot(plt, [{
+                    y: bpm,
+                    x: times,
+                    text: [""],
+                    mode: 'lines+markers',
+                    type: 'scatter'
+                }]);
+            });
+
+
+    }
+
+    window.addEventListener('load', function () {
+        const selectedUploader = localStorage.getItem('selectedUploader');
+        const selectedUploaderId = localStorage.getItem('selectedUploaderId');
+        if (selectedUploader && selectedUploaderId) {
+            selectUploader(selectedUploader, selectedUploaderId)
+        }
+
+        const currentSection = localStorage.getItem('currentSection');
+        if (currentSection) {
+            showPart(currentSection);
+        }
+    });
+
+
 </script>
 </body>
 

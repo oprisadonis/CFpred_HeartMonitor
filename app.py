@@ -3,6 +3,7 @@ import threading
 from threading import Lock
 from datetime import datetime
 import socket
+import numpy as np
 from queue import Queue
 from flask import Flask, render_template, redirect, url_for, request, flash, jsonify, Response, session
 from flask_login import login_user, login_required, logout_user, current_user, LoginManager
@@ -14,6 +15,7 @@ from wtforms.fields.simple import StringField, PasswordField, SubmitField
 from wtforms.validators import DataRequired, EqualTo, Length, Regexp
 from fiveMinAnalysis import FiveMinAnalysis
 from data_models import User, db, PPGData, SupervisorAccess, PPGFeatures
+import neurokit2 as nk
 
 thread = None
 thread_lock = Lock()
@@ -207,7 +209,6 @@ def main_receiver():
     CURRENT_UPLOADER = session['userid']
 
 
-
 # Function to start receiver from Flask
 def start_receiver(user_id):
     global CONNECTED
@@ -323,7 +324,7 @@ def connectSensor():
 
 @app.route("/is_user_active/<userid>")
 def is_user_active(userid):
-    print(f'userid: {userid}\ncurrent_uploader: {CURRENT_UPLOADER}' )
+    print(f'userid: {userid}\ncurrent_uploader: {CURRENT_UPLOADER}')
     print(f'userid: {userid} (type: {type(userid)})')
     print(f'CURRENT_UPLOADER: {CURRENT_UPLOADER} (type: {type(CURRENT_UPLOADER)})')
     if int(userid) == int(CURRENT_UPLOADER):
@@ -420,6 +421,25 @@ def get_dates(user_id):
     )
     dates = [d[0] for d in unique_dates]
     return jsonify({"dates": dates})
+
+
+# def show_ppg_features():
+#     records = PPGFeatures.query.all()
+#     signal = PPGData.query.filter(PPGData.timestamp >= records[2].start_time, PPGData.timestamp <= records[2].finish_time).all()
+#     red_signal = [r.red_signal for r in signal]
+
+
+@app.route("/get_bpm_for_date/<date>/<selectedUploaderId>")
+def get_bpm_for_date(date, selectedUploaderId):
+    date_formatted = datetime.strptime(date, "%Y-%m-%d").date()
+    bpm = (PPGFeatures
+           .query
+           .with_entities(PPGFeatures.finish_time, PPGFeatures.bpm)
+           .filter(PPGFeatures.user_id == int(selectedUploaderId))
+           .filter(func.date(PPGFeatures.finish_time) == date_formatted)
+           .all())
+    formatted_bpm = [(dt.strftime("%H:%M"), int(bpm)) for dt, bpm in bpm]
+    return jsonify({"data": formatted_bpm})
 
 
 if __name__ == '__main__':
