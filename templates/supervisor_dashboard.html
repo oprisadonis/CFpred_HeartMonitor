@@ -176,6 +176,7 @@
     <a onclick="showPart('hf')">HF</a>
     <a onclick="showPart('lf')">LF</a>
     <a onclick="showPart('lf_hf')">LF/HF</a>
+    <a onclick="showPart('cf')">Cognitive Fatigue</a>
     <div class="dropdown">
         <button class="dropbtn" onclick="toggleDropdown()" id="dropdownButton">Select uploader
             <i class="fa fa-caret-down"></i>
@@ -249,6 +250,12 @@
 <div id="part-lf_hf" class="center-wrapper">
     <h1>LF/HF</h1>
     <div id="lf_hf-plot" class="plot"></div>
+</div>
+
+<!-- Cognitive Fatigue -->
+<div id="part-cf" class="center-wrapper">
+    <h1>Cognitive Fatigue</h1>
+    <div id="cf-plot" class="plot"></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -392,6 +399,8 @@
             case "lf_hf":
                 featuresPlot("lf_hf");
                 break;
+            case "cf":
+                cognitiveFatiguePrediction();
 
             default:
                 break;
@@ -459,6 +468,54 @@
                     },
                     type: 'scatter'
                 }]);
+            });
+    }
+
+    function cognitiveFatiguePrediction() {
+        let date = calendar.selectedDates[0]
+        if (date) {
+            date = date.toLocaleDateString("fr-CA", {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit"
+            });
+        } else {
+            date = localStorage.getItem('selectedDate')
+        }
+        if (date)
+            localStorage.setItem('selectedDate', date);
+        let times = []
+        let values = []
+        let plot_name = "cf-plot"
+        const plt = document.getElementById(plot_name)
+        fetch(`/cognitive_fatigue_prediction/${date}/${selectedUploaderId}`)
+            .then(response => response.json())
+            .then(data => {
+                l = data.data
+                for (let i = 0; i < l.length; i++) {
+                    times.push(l[i].finish_time);
+                    values.push(l[i].fatigue);
+                }
+
+                if (plt && plt.data && plt.data.length > 0) {
+                    Plotly.deleteTraces(plt, 0);
+                }
+
+                const layout = {
+                    yaxis: {
+                        tickvals: [0, 1],      // Only show ticks at 0 and 1
+                        range: [-0.2, 1.2]     // Optional: adds padding so markers are visible
+                    }
+                };
+
+                Plotly.plot(plt, [{
+                    y: values,
+                    x: times,
+                    mode: 'lines+markers',
+                    marker: {size: 13},
+                    line: {shape: 'hv'},
+                    type: 'scatter'
+                }], layout);
             });
     }
 

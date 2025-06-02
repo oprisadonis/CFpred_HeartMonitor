@@ -13,6 +13,8 @@ from sqlalchemy import func
 from wtforms.fields.choices import SelectField
 from wtforms.fields.simple import StringField, PasswordField, SubmitField
 from wtforms.validators import DataRequired, EqualTo, Length, Regexp
+
+from CFPrediction import CFPrediction
 from fiveMinAnalysis import FiveMinAnalysis
 from data_models import User, db, PPGData, SupervisorAccess, PPGFeatures
 import neurokit2 as nk
@@ -33,6 +35,9 @@ db.init_app(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+
+# Initialize CFPrediction
+CFP = CFPrediction()
 
 
 class RegForm(FlaskForm):
@@ -433,13 +438,28 @@ def get_feature_for_date(feature, date, selectedUploaderId):
     date_formatted = datetime.strptime(date, "%Y-%m-%d").date()
     column = getattr(PPGFeatures, feature)
     features = (PPGFeatures
-               .query
-               .with_entities(PPGFeatures.finish_time, column)
-               .filter(PPGFeatures.user_id == int(selectedUploaderId))
-               .filter(func.date(PPGFeatures.finish_time) == date_formatted)
-               .all())
+                .query
+                .with_entities(PPGFeatures.finish_time, column)
+                .filter(PPGFeatures.user_id == int(selectedUploaderId))
+                .filter(func.date(PPGFeatures.finish_time) == date_formatted)
+                .all())
     formatted_feature = [(dt.strftime("%H:%M"), float("{:.2f}".format(f))) for dt, f in features]
     return jsonify({"data": formatted_feature})
+
+
+@app.route("/cognitive_fatigue_prediction/<date>/<uploaderId>")
+def cognitive_fatigue_prediction(date, uploaderId):
+    date_formatted = datetime.strptime(date, "%Y-%m-%d").date()
+    predictions = CFP.predict(db.engine, int(uploaderId), date_formatted)
+    # finish_time = ["12:23", "12:45", "12:56", "12:59"]
+    # fatigue = [0,1,0,1]
+    # import pandas as pd
+    # df = pd.DataFrame({
+    #     'finish_time': finish_time,
+    #     'fatigue': fatigue
+    # })
+
+    return jsonify({"data": predictions.to_dict(orient="records")})
 
 
 if __name__ == '__main__':

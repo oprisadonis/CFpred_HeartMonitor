@@ -41,6 +41,8 @@ class PPGData(db.Model):
 
 
 class PPGFeatures(db.Model):
+    __tablename__ = 'ppg_features'
+
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     start_time = db.Column(db.DateTime, nullable=False)
