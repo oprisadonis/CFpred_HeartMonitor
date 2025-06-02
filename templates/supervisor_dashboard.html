@@ -171,6 +171,11 @@
     <a onclick="showPart('bpm')">BPM</a>
     <a onclick="showPart('ibi')">IBI</a>
     <a onclick="showPart('breathingrate')">BREATHING RATE</a>
+    <a onclick="showPart('sdnn')">SDNN</a>
+    <a onclick="showPart('rmssd')">RMSSD</a>
+    <a onclick="showPart('hf')">HF</a>
+    <a onclick="showPart('lf')">LF</a>
+    <a onclick="showPart('lf_hf')">LF/HF</a>
     <div class="dropdown">
         <button class="dropbtn" onclick="toggleDropdown()" id="dropdownButton">Select uploader
             <i class="fa fa-caret-down"></i>
@@ -214,6 +219,36 @@
 <div id="part-breathingrate" class="center-wrapper">
     <h1>BREATHING RATE</h1>
     <div id="breathingrate-plot" class="plot"></div>
+</div>
+
+<!-- SDNN -->
+<div id="part-sdnn" class="center-wrapper">
+    <h1>SDNN</h1>
+    <div id="sdnn-plot" class="plot"></div>
+</div>
+
+<!-- RMSSD -->
+<div id="part-rmssd" class="center-wrapper">
+    <h1>RMSSD</h1>
+    <div id="rmssd-plot" class="plot"></div>
+</div>
+
+<!-- HF -->
+<div id="part-hf" class="center-wrapper">
+    <h1>HF</h1>
+    <div id="hf-plot" class="plot"></div>
+</div>
+
+<!-- LF -->
+<div id="part-lf" class="center-wrapper">
+    <h1>LF</h1>
+    <div id="lf-plot" class="plot"></div>
+</div>
+
+<!-- LF/HF -->
+<div id="part-lf_hf" class="center-wrapper">
+    <h1>LF/HF</h1>
+    <div id="lf_hf-plot" class="plot"></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -341,6 +376,21 @@
                 break;
             case "breathingrate":
                 featuresPlot("breathingrate");
+                break;
+            case "sdnn":
+                featuresPlot("sdnn");
+                break;
+            case "rmssd":
+                featuresPlot("rmssd");
+                break;
+            case "hf":
+                featuresPlot("hf");
+                break;
+            case "lf":
+                featuresPlot("lf");
+                break;
+            case "lf_hf":
+                featuresPlot("lf_hf");
                 break;
 
             default:
