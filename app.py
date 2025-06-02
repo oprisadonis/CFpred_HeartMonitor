@@ -428,18 +428,18 @@ def get_dates(user_id):
 #     signal = PPGData.query.filter(PPGData.timestamp >= records[2].start_time, PPGData.timestamp <= records[2].finish_time).all()
 #     red_signal = [r.red_signal for r in signal]
 
-
-@app.route("/get_bpm_for_date/<date>/<selectedUploaderId>")
-def get_bpm_for_date(date, selectedUploaderId):
+@app.route("/get_feature_for_date/<feature>/<date>/<selectedUploaderId>")
+def get_feature_for_date(feature, date, selectedUploaderId):
     date_formatted = datetime.strptime(date, "%Y-%m-%d").date()
-    bpm = (PPGFeatures
-           .query
-           .with_entities(PPGFeatures.finish_time, PPGFeatures.bpm)
-           .filter(PPGFeatures.user_id == int(selectedUploaderId))
-           .filter(func.date(PPGFeatures.finish_time) == date_formatted)
-           .all())
-    formatted_bpm = [(dt.strftime("%H:%M"), int(bpm)) for dt, bpm in bpm]
-    return jsonify({"data": formatted_bpm})
+    column = getattr(PPGFeatures, feature)
+    features = (PPGFeatures
+               .query
+               .with_entities(PPGFeatures.finish_time, column)
+               .filter(PPGFeatures.user_id == int(selectedUploaderId))
+               .filter(func.date(PPGFeatures.finish_time) == date_formatted)
+               .all())
+    formatted_feature = [(dt.strftime("%H:%M"), float("{:.2f}".format(f))) for dt, f in features]
+    return jsonify({"data": formatted_feature})
 
 
 if __name__ == '__main__':

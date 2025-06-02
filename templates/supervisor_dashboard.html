@@ -102,7 +102,7 @@
             text-align: left;
         }
 
-        #chart, #bmp-plot {
+        #chart, .plot {
             width: 80%;
             height: 400px;
             margin-top: 30px;
@@ -201,17 +201,19 @@
 <!-- BPM -->
 <div id="part-bpm" class="center-wrapper">
     <h1>BPM</h1>
-    <div id="bmp-plot"></div>
+    <div id="bpm-plot" class="plot"></div>
 </div>
 
 <!-- IBI -->
 <div id="part-ibi" class="center-wrapper">
     <h1>IBI</h1>
+    <div id="ibi-plot" class="plot"></div>
 </div>
 
 <!-- BREATHING RATE -->
 <div id="part-breathingrate" class="center-wrapper">
     <h1>BREATHING RATE</h1>
+    <div id="breathingrate-plot" class="plot"></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -332,8 +334,15 @@
             section.style.display = 'flex'
         switch (name) {
             case "bpm":
-                bpmPlot();
+                featuresPlot("bpm");
                 break;
+            case "ibi":
+                featuresPlot("ibi");
+                break;
+            case "breathingrate":
+                featuresPlot("breathingrate");
+                break;
+
             default:
                 break;
         }
@@ -360,7 +369,7 @@
         }
     }
 
-    function bpmPlot() {
+    function featuresPlot(feature) {
         let date = calendar.selectedDates[0]
         if (date) {
             date = date.toLocaleDateString("fr-CA", {
@@ -374,15 +383,16 @@
         if (date)
             localStorage.setItem('selectedDate', date);
         let times = []
-        let bpm = []
-        const plt = document.getElementById("bmp-plot")
-        fetch(`/get_bpm_for_date/${date}/${selectedUploaderId}`)
+        let values = []
+        let plot_name = feature + "-plot"
+        const plt = document.getElementById(plot_name)
+        fetch(`/get_feature_for_date/${feature}/${date}/${selectedUploaderId}`)
             .then(response => response.json())
             .then(data => {
                 l = data.data
                 for (let i = 0; i < l.length; i++) {
                     times.push(l[i][0]);
-                    bpm.push(l[i][1]);
+                    values.push(l[i][1]);
                 }
 
                 if (plt && plt.data && plt.data.length > 0) {
@@ -390,16 +400,18 @@
                 }
 
                 Plotly.plot(plt, [{
-                    y: bpm,
+                    y: values,
                     x: times,
                     text: [""],
                     mode: 'lines+markers',
+                    marker: {
+                        size: 13
+                    },
                     type: 'scatter'
                 }]);
             });
-
-
     }
+
 
     window.addEventListener('load', function () {
         const selectedUploader = localStorage.getItem('selectedUploader');
