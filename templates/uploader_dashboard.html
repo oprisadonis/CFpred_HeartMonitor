@@ -251,7 +251,7 @@
 
     <div class="nav-links-right">
         <button class="standard-btn" style="width: 150px" onclick="toggleDrawer()">Manage Access</button>
-        <a href="{{ url_for('home') }}" class="standard-btn">Home</a>
+        <!-- <a href="{{ url_for('home') }}" class="standard-btn">Home</a> -->
         <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
 
     </div>
@@ -278,10 +278,10 @@
 <script>
     let isMonitoring = false;
     let buffer = [];
-    const MAX_POINTS = 400;
+    let MAX_POINTS = 600;
     let cnt = 0;
     Plotly.plot('chart', [{
-        y: [0],
+        y: [],
         text: [""],
         mode: 'lines',
         type: 'line'
@@ -291,7 +291,6 @@
         $(document).ready(function () {
             const socket = io.connect();
             socket.on("updateSensorData", async function (msg) {
-                console.log("Received sensorData :: " + msg.date + " :: " + msg.value);
                 updateChart(msg.date, msg.value);
                 //await delay(5);
             });
@@ -301,13 +300,13 @@
 
 
     function updateChart(date, value) {
-        cnt++;
-        buffer.push(value);
+        cnt = cnt + date.length;
+        buffer.push(...value);
         if (buffer.length > MAX_POINTS) {
-            buffer.shift();
+            buffer.splice(0, value.length);
         }
 
-        Plotly.extendTraces('chart', {y: [[value]], text: [[date]]}, [0]);
+        Plotly.extendTraces('chart', {y: [value], text: [date]}, [0]);
 
         if (cnt > MAX_POINTS) {
             Plotly.relayout('chart', {
@@ -362,10 +361,10 @@
                 const statusText = document.getElementById('status-text');
                 if (data.status === "connected") {
                     statusDot.className = "status-dot green";
-                    statusText.innerText = "Sensor Connected";
+                    statusText.innerText = "Sensor connected";
                 } else {
                     statusDot.className = "status-dot red";
-                    statusText.innerText = "No Sensor Connected";
+                    statusText.innerText = "No sensor connected";
                 }
             })
             .catch(error => console.error('Error fetching sensor status:', error));
@@ -379,7 +378,7 @@
     }
 
     checkSensorStatus();
-    setInterval(checkSensorStatus, 10000);
+    setInterval(checkSensorStatus, 5000);
     {% if drawer_open %}
         window.onload = function () {
             toggleDrawer();

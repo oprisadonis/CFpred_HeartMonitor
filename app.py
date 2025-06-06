@@ -12,7 +12,7 @@ from flask_wtf import FlaskForm
 from sqlalchemy import func
 from wtforms.fields.choices import SelectField
 from wtforms.fields.simple import StringField, PasswordField, SubmitField
-from wtforms.validators import DataRequired, EqualTo, Length, Regexp
+from wtforms.validators import DataRequired, EqualTo, Length, Regexp, ValidationError
 
 from CFPrediction import CFPrediction
 from fiveMinAnalysis import FiveMinAnalysis
@@ -47,11 +47,16 @@ class RegForm(FlaskForm):
     password = PasswordField('Password', validators=[
         DataRequired(),
         Length(min=8, message="Password must be at least 8 characters long."),
-        Regexp("^(?=.*?[A-Za-z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$",
-               message="Password must include at least one letter, one number, and one special character.")
+        Regexp("^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[^\w\s]).{8,}$",
+               message="The password must include one uppercase letter, one lowercase letter, one digit and one special character.")
     ])
     confirm_password = PasswordField('Confirm Password', validators=[DataRequired(), EqualTo('password')])
     submit = SubmitField('Register')
+
+    def validate_username(self, username):
+        user = User.query.filter_by(username=username.data).first()
+        if user:
+            raise ValidationError('Unavailable username.')
 
 
 class LoginForm(FlaskForm):
@@ -99,6 +104,8 @@ def background_thread():
     # logic of 25Hz for both with or without filter
     global q
     filterQ = []
+    tq = []
+    dq = []
     while True:
         if not q.empty():
             if useFilter:
@@ -106,11 +113,17 @@ def background_thread():
                 filterQ.append(e.red_signal)
                 if len(filterQ) >= 4:
                     avg = sum(filterQ) / len(filterQ)
-                    socketio.emit('updateSensorData', {'value': avg, "date": e.timestamp.timestamp()})
+                    socketio.emit('updateSensorData', {'value': [avg], "date": [e.timestamp.timestamp()]})
                     filterQ = []
             else:
-                e = q.get()
-                socketio.emit('updateSensorData', {'value': e.red_signal, "date": e.timestamp.timestamp()})
+                if q.qsize() > 10:
+                    for _ in range(10):
+                        e = q.get()
+                        tq.append(e.timestamp.timestamp())
+                        dq.append(e.red_signal)
+                    socketio.emit('updateSensorData', {'value': dq, "date": tq})
+                    tq = []
+                    dq = []
 
 
 @socketio.on('connect')

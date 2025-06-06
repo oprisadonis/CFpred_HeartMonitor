@@ -102,8 +102,9 @@
             text-align: left;
         }
 
-        #chart, .plot {
-            width: 80%;
+        #chart, .plot{
+            width: 80vw;
+            min-width: 864px;
             height: 400px;
             margin-top: 30px;
         }
@@ -279,11 +280,11 @@
     //live plot
     let isMonitoring = false;
     let buffer = [];
-    const MAX_POINTS = 400;
+    const MAX_POINTS = 600;
     let socket = null
     let cnt = 0;
     Plotly.plot('chart', [{
-        y: [0],
+        y: [],
         text: [""],
         mode: 'lines',
         type: 'line'
@@ -293,7 +294,6 @@
         $(document).ready(function () {
             const socket = io.connect();
             socket.on("updateSensorData", async function (msg) {
-                console.log("Received sensorData :: " + msg.date + " :: " + msg.value);
                 updateChart(msg.date, msg.value);
                 //await delay(5);
             });
@@ -334,13 +334,13 @@
 
 
     function updateChart(date, value) {
-        cnt++;
-        buffer.push(value);
+        cnt = cnt + date.length;
+        buffer.push(...value);
         if (buffer.length > MAX_POINTS) {
-            buffer.shift();
+            buffer.splice(0, value.length);
         }
 
-        Plotly.extendTraces('chart', {y: [[value]], text: [[date]]}, [0]);
+        Plotly.extendTraces('chart', {y: [value], text: [date]}, [0]);
 
         if (cnt > MAX_POINTS) {
             Plotly.relayout('chart', {
@@ -369,9 +369,10 @@
         });
         // Show the selected part
         const section = document.getElementById(`part-${name}`);
-        if (selectedUploaderId == null)
+        if (selectedUploaderId == null) {
             document.getElementById("chart").style.visibility = 'hidden';
-        document.getElementById("plot_text").innerText = "No data streaming"
+            document.getElementById("plot_text").innerText = "No data streaming"
+        }
         if (section)
             section.style.display = 'flex'
         switch (name) {
