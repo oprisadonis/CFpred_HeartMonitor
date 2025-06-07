@@ -23,6 +23,7 @@ class CFPrediction:
         self.inferenceSession = sess
 
     def __normalize_data(self, df):
+        df = df.copy()
         for col in df.columns:
             df[col] = (df[col] - df[col].mean()) / df[col].std()
         return df

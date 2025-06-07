@@ -101,7 +101,7 @@ useFilter = False
 #                 e = q.get()
 #                 socketio.emit('updateSensorData', {'value': e.red_signal, "date": e.timestamp.timestamp()})
 def background_thread():
-    # logic of 25Hz for both with or without filter
+    # logic of 25Hz with without filter
     global q
     filterQ = []
     tq = []
@@ -172,7 +172,6 @@ def save_batch(data_batch, user_id, fma):
 
 # Function to handle client connection
 def handle_client(user_id):
-    """Receives data from the client, processes it, and stores it efficiently."""
     global CONNECTED
     # five minutes analysis Object
     fma = FiveMinAnalysis(db=db, user_id=user_id)
@@ -183,11 +182,11 @@ def handle_client(user_id):
         buffer = ""
 
         while True:
-            data = conn.recv(4096).decode('utf-8')  # Larger buffer for batch data
+            data = conn.recv(4096).decode('utf-8')
             if not data:
                 break  # Stop if connection is closed
 
-            buffer += data  # Append received data to buffer
+            buffer += data
 
             while "\n" in buffer:
                 line, buffer = buffer.split("\n", 1)  # Extract one message at a time
@@ -264,7 +263,6 @@ def sensor_status():
     return jsonify({"status": status})
 
 
-# Step 2: Routes for Signup, Login, and Dashboard
 @app.route('/')
 def home():
     if current_user.is_authenticated:
@@ -279,7 +277,6 @@ def signup():
         username = f.username.data
         user_type = f.user_type.data
         password = f.password.data
-
         # create new user
         new_user = User(username=username, user_type=user_type)
         new_user.set_password(password)
