@@ -283,12 +283,20 @@
     const MAX_POINTS = 600;
     let socket = null
     let cnt = 0;
+     const layout = {
+                    yaxis: {
+                        title: "PPG Red LED (a.u.)"
+                    },
+                    xaxis: {
+                        title: 'Samples'
+                    }
+                };
     Plotly.plot('chart', [{
         y: [],
         text: [""],
         mode: 'lines',
         type: 'line'
-    }]);
+    }], layout);
 
     document.addEventListener("DOMContentLoaded", function () {
         $(document).ready(function () {
@@ -344,9 +352,9 @@
 
         if (cnt > MAX_POINTS) {
             Plotly.relayout('chart', {
-                xaxis: {range: [cnt - MAX_POINTS, cnt]},
+                xaxis: {range: [cnt - MAX_POINTS, cnt], title:"Samples"},
                 yaxis: {
-                    range: [Math.min(...buffer), Math.max(...buffer)]
+                    range: [Math.min(...buffer), Math.max(...buffer)], title:"PPG Red LED (a.u)"
                 }
             });
         }
@@ -458,7 +466,25 @@
                 if (plt && plt.data && plt.data.length > 0) {
                     Plotly.deleteTraces(plt, 0);
                 }
+                const dict = {
+                    "bpm":"",
+                    "ibi":" (ms)",
+                    "sdnn":" (ms)",
+                    "rmssd":" (ms)",
+                    "breathingrate":" (Hz)",
+                    "hf":" (ms²)",
+                    "lf":" (ms²)",
+                    "lf_hf":""
+                }
 
+                const layout = {
+                    yaxis: {
+                        title: feature + dict[feature]
+                    },
+                    xaxis: {
+                        title: 'time (hh:mm)'
+                    }
+                };
                 Plotly.plot(plt, [{
                     y: values,
                     x: times,
@@ -468,7 +494,7 @@
                         size: 13
                     },
                     type: 'scatter'
-                }]);
+                }], layout);
             });
     }
 
@@ -504,8 +530,12 @@
 
                 const layout = {
                     yaxis: {
+                        title: 'Fatigue-1 / Non-Fatigue-0',
                         tickvals: [0, 1],
                         range: [-0.2, 1.2]
+                    },
+                    xaxis: {
+                        title: 'time (hh:mm)'
                     }
                 };
 

@@ -280,12 +280,20 @@
     let buffer = [];
     let MAX_POINTS = 600;
     let cnt = 0;
+    const layout = {
+                    yaxis: {
+                        title: "PPG Red LED (a.u.)"
+                    },
+                    xaxis: {
+                        title: 'Samples'
+                    }
+                };
     Plotly.plot('chart', [{
         y: [],
         text: [""],
         mode: 'lines',
         type: 'line'
-    }]);
+    }], layout);
 
     document.addEventListener("DOMContentLoaded", function () {
         $(document).ready(function () {
